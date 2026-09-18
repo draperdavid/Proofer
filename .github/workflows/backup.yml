@@ -1,0 +1,39 @@
+name: Database Backup
+
+on:
+  schedule:
+    # Daily at 08:00 UTC. Quarterly test-restore is the real safety net (see
+    # docs/backup-restore.md) — this schedule just keeps dumps flowing so there's
+    # always something recent to restore from.
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump database
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
+          DUMP_FILE="proofer-${TIMESTAMP}.sql.gz"
+          pg_dump "$DATABASE_URL" --no-owner --no-privileges | gzip > "$DUMP_FILE"
+          echo "DUMP_FILE=$DUMP_FILE" >> "$GITHUB_ENV"
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -euo pipefail
+          aws s3 cp "$DUMP_FILE" "s3://proofer-backups/$DUMP_FILE" \
+            --endpoint-url "https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
