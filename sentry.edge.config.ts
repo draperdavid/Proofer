@@ -1,4 +1,4 @@
-// Server-side Sentry init, run inside the Cloudflare Worker via src/instrumentation.ts.
+// Edge-runtime Sentry init (middleware.ts runs here), loaded via src/instrumentation.ts.
 import * as Sentry from "@sentry/nextjs";
 import { env } from "./src/lib/env";
 
