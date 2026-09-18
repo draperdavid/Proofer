@@ -7,6 +7,15 @@ on:
 permissions:
   contents: read
 
+# Without this, rapid successive pushes to the same branch can run their
+# deploy-staging/deploy-production jobs concurrently, and whichever finishes its
+# `wrangler deploy` last wins — silently overwriting a newer commit's deploy with an
+# older one's, even though both runs report success. One in-flight deploy per branch;
+# a newer push cancels the older one since only the latest commit's deploy matters.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   secret-scan:
     runs-on: ubuntu-latest
