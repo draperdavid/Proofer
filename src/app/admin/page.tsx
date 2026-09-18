@@ -1,9 +1,21 @@
-// Admin shell. Auth guard added in Phase 0.4 (review gate).
-export default function AdminHome() {
+import { redirect } from "next/navigation";
+import { supabaseServer } from "@/lib/supabase/server";
+import { SignOutButton } from "./sign-out-button";
+
+export default async function AdminHome() {
+  const supabase = await supabaseServer();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/admin/login");
+
   return (
     <main>
       <h1>Proofer Admin</h1>
-      <p>Empty admin shell. Auth and the CRM/kanban land in Phase 0.4 and Phase 1.</p>
+      <p>Signed in as {user.email}.</p>
+      <p>Empty admin shell. CRM/kanban lands in Phase 1.</p>
+      <SignOutButton />
     </main>
   );
 }

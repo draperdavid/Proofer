@@ -23,6 +23,8 @@ export const env = {
     bucket: required("R2_BUCKET"),
     publicBaseUrl: optional("R2_PUBLIC_BASE_URL"),
   }),
-  sentryDsn: () => optional("SENTRY_DSN"),
+  // Sentry DSNs are not secret (Sentry's own docs say they're safe in client code),
+  // so this is NEXT_PUBLIC_ like the Supabase URL/anon key, not a plain secret.
+  sentryDsn: () => optional("NEXT_PUBLIC_SENTRY_DSN"),
   appBaseUrl: () => process.env.APP_BASE_URL || "http://localhost:3000",
 };

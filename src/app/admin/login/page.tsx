@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
-export default function Login() {
+export default function AdminLogin() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -14,30 +16,19 @@ export default function Login() {
     setSubmitting(true);
     setError(null);
     const supabase = supabaseBrowser();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setSubmitting(false);
     if (error) {
       setError(error.message);
       return;
     }
-    setSent(true);
-  }
-
-  if (sent) {
-    return (
-      <main>
-        <h1>Check your email</h1>
-        <p>We sent a sign-in link to {email}.</p>
-      </main>
-    );
+    router.push("/admin");
+    router.refresh();
   }
 
   return (
     <main>
-      <h1>Client sign in</h1>
+      <h1>Admin sign in</h1>
       <form onSubmit={handleSubmit}>
         <div>
           <label htmlFor="email">Email</label>
@@ -49,9 +40,19 @@ export default function Login() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+        <div>
+          <label htmlFor="password">Password</label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
         {error && <p role="alert">{error}</p>}
         <button type="submit" disabled={submitting}>
-          {submitting ? "Sending..." : "Send magic link"}
+          {submitting ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </main>

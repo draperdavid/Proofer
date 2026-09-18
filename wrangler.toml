@@ -1,3 +1,4 @@
+# Production Worker (deployed from `main`).
 name = "proofer"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
@@ -8,13 +9,19 @@ main = ".open-next/worker.js"
 directory = ".open-next/assets"
 binding = "ASSETS"
 
-# R2 bucket for media (photos/video). Set the real bucket name in the dashboard.
-[[r2_buckets]]
-binding = "MEDIA"
-bucket_name = "proofer-media"
+# Staging Worker (deployed from `develop`). Run with --env staging.
+[env.staging]
+name = "proofer-staging"
+
+[env.staging.assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# R2 bucket binding is added in Phase 5 once the media bucket exists (R2 is deferred for now).
+# r2.ts uses the S3-compatible API with access keys instead, so no binding is needed yet.
 
 # Secrets are set via the Cloudflare dashboard or `wrangler secret put`, never here:
 # NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
 # NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
 # R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_BASE_URL,
-# RESEND_API_KEY, RESEND_FROM_EMAIL, SENTRY_DSN, APP_BASE_URL
+# RESEND_API_KEY, RESEND_FROM_EMAIL, NEXT_PUBLIC_SENTRY_DSN, APP_BASE_URL
