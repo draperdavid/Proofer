@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { SignOutButton } from "./sign-out-button";
@@ -14,7 +15,9 @@ export default async function AdminHome() {
     <main>
       <h1>Proofer Admin</h1>
       <p>Signed in as {user.email}.</p>
-      <p>Empty admin shell. CRM/kanban lands in Phase 1.</p>
+      <p>
+        <Link href="/admin/contacts">Contacts</Link>
+      </p>
       <SignOutButton />
     </main>
   );
