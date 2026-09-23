@@ -35,7 +35,18 @@ export async function createProject(formData: FormData) {
   const fields = projectFields(formData);
 
   const db = supabaseAdmin();
-  const { data, error } = await db.from("projects").insert(fields).select("id").single();
+
+  // New cards land at the end of their stage's order, not tied at the default 0.
+  const { count } = await db
+    .from("projects")
+    .select("id", { count: "exact", head: true })
+    .eq("stage_id", fields.stage_id);
+
+  const { data, error } = await db
+    .from("projects")
+    .insert({ ...fields, position: count ?? 0 })
+    .select("id")
+    .single();
   if (error) throw error;
 
   revalidatePath("/admin/projects");
@@ -64,4 +75,49 @@ export async function deleteProject(id: string, contactId: string | null) {
   revalidatePath("/admin/projects");
   if (contactId) revalidatePath(`/admin/contacts/${contactId}`);
   redirect(contactId ? `/admin/contacts/${contactId}` : "/admin/contacts");
+}
+
+// Moves a card to `newStageId` at `newIndex` (0-based, among that stage's other
+// cards), then resequences positions in the destination stage (and the source
+// stage, if different) so drag order persists cleanly with no gaps.
+export async function moveProject(projectId: string, newStageId: string, newIndex: number) {
+  const db = supabaseAdmin();
+
+  const { data: moving, error: movingErr } = await db
+    .from("projects")
+    .select("id, stage_id")
+    .eq("id", projectId)
+    .single();
+  if (movingErr || !moving) throw movingErr ?? new Error("Project not found");
+  const oldStageId = moving.stage_id as string | null;
+
+  const { data: destCards, error: destErr } = await db
+    .from("projects")
+    .select("id")
+    .eq("stage_id", newStageId)
+    .neq("id", projectId)
+    .order("position", { ascending: true });
+  if (destErr) throw destErr;
+
+  const ids = (destCards ?? []).map((p) => p.id as string);
+  const clampedIndex = Math.max(0, Math.min(newIndex, ids.length));
+  ids.splice(clampedIndex, 0, projectId);
+
+  await Promise.all(
+    ids.map((id, i) => db.from("projects").update({ stage_id: newStageId, position: i }).eq("id", id))
+  );
+
+  if (oldStageId && oldStageId !== newStageId) {
+    const { data: sourceCards, error: sourceErr } = await db
+      .from("projects")
+      .select("id")
+      .eq("stage_id", oldStageId)
+      .order("position", { ascending: true });
+    if (sourceErr) throw sourceErr;
+    await Promise.all(
+      (sourceCards ?? []).map((p, i) => db.from("projects").update({ position: i }).eq("id", p.id))
+    );
+  }
+
+  revalidatePath("/admin/projects");
 }

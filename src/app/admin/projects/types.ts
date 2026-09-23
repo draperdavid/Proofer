@@ -9,6 +9,7 @@ export type Project = {
   description: string | null;
   private_notes: string | null;
   archived: boolean;
+  position: number;
   created_at: string;
 };
 

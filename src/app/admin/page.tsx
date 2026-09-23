@@ -17,6 +17,8 @@ export default async function AdminHome() {
       <p>Signed in as {user.email}.</p>
       <p>
         <Link href="/admin/contacts">Contacts</Link>
+        {" | "}
+        <Link href="/admin/projects">Projects</Link>
       </p>
       <SignOutButton />
     </main>
