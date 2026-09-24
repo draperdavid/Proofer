@@ -76,6 +76,8 @@ export default async function ProjectsPage({
         ) : (
           <Link href={`/admin/projects?view=${viewParam}&archived=1`}>Archived</Link>
         )}
+        {" | "}
+        <Link href="/admin/projects/stages">Manage stages</Link>
       </p>
 
       <form>
