@@ -4,6 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteProject, updateProject } from "../actions";
 import { ProjectFields } from "../project-fields";
 import type { Project, ProjectStage } from "../types";
+import { formatCents } from "../../invoices/money";
+import type { Invoice } from "../../invoices/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,12 +19,15 @@ export default async function ProjectDetailPage({
   const { id } = await params;
 
   const db = supabaseAdmin();
-  const [{ data, error }, { data: stages, error: stagesError }] = await Promise.all([
-    db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
-    db.from("project_stages").select("*").order("position", { ascending: true }),
-  ]);
+  const [{ data, error }, { data: stages, error: stagesError }, { data: invoices, error: invoicesError }] =
+    await Promise.all([
+      db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
+      db.from("project_stages").select("*").order("position", { ascending: true }),
+      db.from("invoices").select("*").eq("project_id", id).order("created_at", { ascending: false }),
+    ]);
   if (error || !data) notFound();
   if (stagesError) throw stagesError;
+  if (invoicesError) throw invoicesError;
 
   const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
@@ -45,6 +50,21 @@ export default async function ProjectDetailPage({
       <form action={deleteThisProject}>
         <button type="submit">Delete project</button>
       </form>
+
+      <h2>Invoices</h2>
+      <p>
+        <Link href={`/admin/invoices/new?project_id=${project.id}`}>+ New invoice</Link>
+      </p>
+      <ul>
+        {((invoices ?? []) as Invoice[]).map((inv) => (
+          <li key={inv.id}>
+            <Link href={`/admin/invoices/${inv.id}`}>{formatCents(inv.total_cents, inv.currency)}</Link>
+            {" — "}
+            {inv.status}
+          </li>
+        ))}
+        {(!invoices || invoices.length === 0) && <li>No invoices yet.</li>}
+      </ul>
     </main>
   );
 }
