@@ -32,6 +32,15 @@ jobs:
     needs: secret-scan
     runs-on: ubuntu-latest
     environment: staging
+    # Job-level so every step gets it — `opennextjs-cloudflare build` re-runs
+    # `next build` internally as a separate process, so a step-scoped `env:`
+    # on just the first `npm run build` step never reached that second,
+    # actually-deployed build. Silently embedded undefined for
+    # NEXT_PUBLIC_SUPABASE_ANON_KEY since this workflow was written.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,10 +48,6 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
       - run: npx opennextjs-cloudflare build
       - run: npx wrangler deploy --env staging
         env:
@@ -53,6 +58,12 @@ jobs:
     needs: secret-scan
     runs-on: ubuntu-latest
     environment: production
+    # See deploy-staging above: job-level so both the `npm run build` step and
+    # opennextjs-cloudflare's internal second `next build` both see these.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,10 +71,6 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
       - run: npx opennextjs-cloudflare build
       - run: npx wrangler deploy
         env:
