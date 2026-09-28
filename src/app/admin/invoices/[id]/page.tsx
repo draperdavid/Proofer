@@ -55,6 +55,12 @@ export default async function InvoiceDetailPage({
         {formatCents(invoice.total_cents, invoice.currency)}
       </p>
 
+      {invoice.status === "sent" && (
+        <p>
+          Pay link: <Link href={`/pay/${invoice.id}`}>{`/pay/${invoice.id}`}</Link>
+        </p>
+      )}
+
       {editable && (
         <>
           <form action={updateThisInvoice}>

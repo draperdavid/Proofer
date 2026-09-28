@@ -17,6 +17,7 @@ export type Invoice = {
   tax_cents: number;
   total_cents: number;
   notes: string | null;
+  stripe_checkout_session_id: string | null;
   created_at: string;
   updated_at: string;
 };
