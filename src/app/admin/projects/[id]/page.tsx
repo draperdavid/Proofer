@@ -8,6 +8,8 @@ import { formatCents } from "../../invoices/money";
 import type { Invoice } from "../../invoices/types";
 import { generateContract } from "../../contracts/actions";
 import type { Contract, ContractTemplate } from "../../contracts/types";
+import { sendQuestionnaire } from "../../questionnaires/actions";
+import type { Questionnaire, QuestionnaireTemplate } from "../../questionnaires/types";
 
 export const dynamic = "force-dynamic";
 
@@ -27,23 +29,30 @@ export default async function ProjectDetailPage({
     { data: invoices, error: invoicesError },
     { data: contracts, error: contractsError },
     { data: templates, error: templatesError },
+    { data: questionnaires, error: questionnairesError },
+    { data: questionnaireTemplates, error: questionnaireTemplatesError },
   ] = await Promise.all([
     db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
     db.from("project_stages").select("*").order("position", { ascending: true }),
     db.from("invoices").select("*").eq("project_id", id).order("created_at", { ascending: false }),
     db.from("contracts").select("*").eq("project_id", id).order("created_at", { ascending: false }),
     db.from("contract_templates").select("*").order("name", { ascending: true }),
+    db.from("questionnaires").select("*").eq("project_id", id).order("created_at", { ascending: false }),
+    db.from("questionnaire_templates").select("*").order("name", { ascending: true }),
   ]);
   if (error || !data) notFound();
   if (stagesError) throw stagesError;
   if (invoicesError) throw invoicesError;
   if (contractsError) throw contractsError;
   if (templatesError) throw templatesError;
+  if (questionnairesError) throw questionnairesError;
+  if (questionnaireTemplatesError) throw questionnaireTemplatesError;
 
   const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
   const deleteThisProject = deleteProject.bind(null, project.id, project.contact_id);
   const generateThisContract = generateContract.bind(null, project.id);
+  const sendThisQuestionnaire = sendQuestionnaire.bind(null, project.id);
 
   return (
     <main>
@@ -103,6 +112,33 @@ export default async function ProjectDetailPage({
       {!project.contacts && <p>Link a contact to this project before generating a contract.</p>}
       <p>
         <Link href="/admin/contracts/templates">Manage contract templates</Link>
+      </p>
+
+      <h2>Questionnaires</h2>
+      <ul>
+        {((questionnaires ?? []) as Questionnaire[]).map((q) => (
+          <li key={q.id}>
+            <Link href={`/admin/questionnaires/${q.id}`}>{q.submitted_at ? "Submitted" : "Awaiting response"}</Link>
+          </li>
+        ))}
+        {(!questionnaires || questionnaires.length === 0) && <li>No questionnaires sent yet.</li>}
+      </ul>
+      {project.contacts && (
+        <form action={sendThisQuestionnaire}>
+          <label htmlFor="template_id">Send questionnaire from template</label>
+          <select id="template_id" name="template_id" required>
+            {((questionnaireTemplates ?? []) as QuestionnaireTemplate[]).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <button type="submit">Send</button>
+        </form>
+      )}
+      {!project.contacts && <p>Link a contact to this project before sending a questionnaire.</p>}
+      <p>
+        <Link href="/admin/questionnaires/templates">Manage questionnaire templates</Link>
       </p>
     </main>
   );

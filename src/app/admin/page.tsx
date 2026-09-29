@@ -23,6 +23,8 @@ export default async function AdminHome() {
         <Link href="/admin/projects">Projects</Link>
         {" | "}
         <Link href="/admin/invoices">Invoices</Link>
+        {" | "}
+        <Link href="/admin/questionnaires/templates">Questionnaire templates</Link>
       </p>
       <SignOutButton />
     </main>
