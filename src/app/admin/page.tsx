@@ -25,6 +25,8 @@ export default async function AdminHome() {
         <Link href="/admin/invoices">Invoices</Link>
         {" | "}
         <Link href="/admin/questionnaires/templates">Questionnaire templates</Link>
+        {" | "}
+        <Link href="/admin/session-types">Session types</Link>
       </p>
       <SignOutButton />
     </main>
