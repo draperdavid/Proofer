@@ -67,6 +67,50 @@ export function SessionTypeFields({
         />
       </div>
       <div>
+        <label htmlFor="min_notice_minutes">Minimum notice (minutes before start)</label>
+        <input
+          id="min_notice_minutes"
+          name="min_notice_minutes"
+          type="number"
+          min={0}
+          step={1}
+          defaultValue={sessionType?.min_notice_minutes ?? 0}
+        />
+      </div>
+      <div>
+        <label htmlFor="buffer_before_minutes">Buffer before (minutes)</label>
+        <input
+          id="buffer_before_minutes"
+          name="buffer_before_minutes"
+          type="number"
+          min={0}
+          step={1}
+          defaultValue={sessionType?.buffer_before_minutes ?? 0}
+        />
+      </div>
+      <div>
+        <label htmlFor="buffer_after_minutes">Buffer after (minutes)</label>
+        <input
+          id="buffer_after_minutes"
+          name="buffer_after_minutes"
+          type="number"
+          min={0}
+          step={1}
+          defaultValue={sessionType?.buffer_after_minutes ?? 0}
+        />
+      </div>
+      <div>
+        <label htmlFor="max_bookings_per_day">Max bookings per day (blank = unlimited)</label>
+        <input
+          id="max_bookings_per_day"
+          name="max_bookings_per_day"
+          type="number"
+          min={1}
+          step={1}
+          defaultValue={sessionType?.max_bookings_per_day ?? ""}
+        />
+      </div>
+      <div>
         <label>
           <input name="is_public" type="checkbox" defaultChecked={sessionType?.is_public ?? true} /> Public
           (listed on the booking page; unchecked = direct link only)

@@ -27,6 +27,8 @@ export default async function AdminHome() {
         <Link href="/admin/questionnaires/templates">Questionnaire templates</Link>
         {" | "}
         <Link href="/admin/session-types">Session types</Link>
+        {" | "}
+        <Link href="/admin/availability">Availability</Link>
       </p>
       <SignOutButton />
     </main>

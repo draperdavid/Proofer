@@ -12,6 +12,10 @@ export type SessionType = {
   active: boolean;
   contract_template_id: string | null;
   questionnaire_template_id: string | null;
+  min_notice_minutes: number;
+  buffer_before_minutes: number;
+  buffer_after_minutes: number;
+  max_bookings_per_day: number | null;
   created_at: string;
   updated_at: string;
 };

@@ -3,6 +3,7 @@
 // Session type CRUD. Runs behind the /admin/:path* middleware auth gate, so
 // these actions trust the caller and use the service-role client directly.
 // Validation here mirrors the DB check constraints in 0009_session_types.sql
+// and the booking-rule columns from 0010_availability.sql,
 // so David gets a readable error instead of a raw Postgres one.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -29,6 +30,14 @@ function parseDollars(raw: FormDataEntryValue | null, label: string): number | n
   return dollarsToCents(n);
 }
 
+function parseMinutes(raw: FormDataEntryValue | null, label: string): number {
+  const v = str(raw);
+  if (v === null) return 0;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${label} must be a whole number of minutes, 0 or more`);
+  return n;
+}
+
 function sessionTypeFields(formData: FormData) {
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
@@ -47,6 +56,12 @@ function sessionTypeFields(formData: FormData) {
     throw new Error("Deposit must be greater than 0 and no more than the price (leave blank to require full payment)");
   }
 
+  const maxPerDayRaw = str(formData.get("max_bookings_per_day"));
+  const maxPerDay = maxPerDayRaw === null ? null : Number(maxPerDayRaw);
+  if (maxPerDay !== null && (!Number.isInteger(maxPerDay) || maxPerDay <= 0)) {
+    throw new Error("Max bookings per day must be a whole number greater than 0 (leave blank for unlimited)");
+  }
+
   return {
     name,
     slug,
@@ -59,6 +74,10 @@ function sessionTypeFields(formData: FormData) {
     active: formData.get("active") === "on",
     contract_template_id: str(formData.get("contract_template_id")),
     questionnaire_template_id: str(formData.get("questionnaire_template_id")),
+    min_notice_minutes: parseMinutes(formData.get("min_notice_minutes"), "Minimum notice"),
+    buffer_before_minutes: parseMinutes(formData.get("buffer_before_minutes"), "Buffer before"),
+    buffer_after_minutes: parseMinutes(formData.get("buffer_after_minutes"), "Buffer after"),
+    max_bookings_per_day: maxPerDay,
   };
 }
 
