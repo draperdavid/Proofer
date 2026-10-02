@@ -1,0 +1,76 @@
+name: Restore Drill
+
+# Proves the latest backup is usable: downloads the newest dump from R2, restores it
+# into a throwaway Postgres 17 inside the runner (never touches staging or prod), then
+# checks every public table exists with the same row count as the live database.
+# Supabase-internal schemas (auth, storage, ...) will log errors on vanilla Postgres;
+# that's expected — the app's data lives in public, which is what gets verified.
+
+on:
+  schedule:
+    # Quarterly, 09:00 UTC on Jan/Apr/Jul/Oct 1.
+    - cron: "0 9 1 1,4,7,10 *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      LOCAL_DB: postgresql://postgres:drill@localhost:5432/postgres
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Download latest dump from R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          LATEST=$(aws s3 ls s3://proofer-backups/ --endpoint-url "$ENDPOINT" | awk '{print $4}' | grep '^proofer-.*\.sql\.gz$' | sort | tail -1)
+          if [ -z "$LATEST" ]; then echo "No dumps found in proofer-backups"; exit 1; fi
+          echo "Restoring $LATEST"
+          aws s3 cp "s3://proofer-backups/$LATEST" dump.sql.gz --endpoint-url "$ENDPOINT"
+
+      - name: Restore into throwaway Postgres
+        run: |
+          gunzip -c dump.sql.gz | psql "$LOCAL_DB" -q > restore.log 2>&1 || true
+          echo "Restore finished with $(grep -c 'ERROR' restore.log || true) errors (non-public schemas expected)."
+          echo "Errors touching the public schema:"
+          grep 'ERROR' restore.log | grep -i 'public' || echo "  none"
+
+      - name: Compare public tables with live database
+        env:
+          LIVE_DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          FAIL=0
+          for t in $(psql "$LIVE_DB" -Atc "select tablename from pg_tables where schemaname='public' order by 1"); do
+            live=$(psql "$LIVE_DB" -Atc "select count(*) from public.\"$t\"")
+            restored=$(psql "$LOCAL_DB" -Atc "select count(*) from public.\"$t\"" 2>/dev/null || echo MISSING)
+            if [ "$live" = "$restored" ]; then mark=OK; else mark=MISMATCH; FAIL=1; fi
+            printf '%-28s live=%-6s restored=%-8s %s\n' "$t" "$live" "$restored" "$mark"
+          done
+          if [ "$FAIL" = 1 ]; then
+            echo "Drill FAILED (a mismatch can also mean data changed since the dump; rerun right after a fresh backup)."
+            exit 1
+          fi
+          echo "Drill PASSED: every public table restored with matching row counts."
