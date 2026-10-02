@@ -15,8 +15,14 @@ jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
+      # pg_dump refuses to dump a server newer than itself, and Ubuntu's default
+      # client lags Supabase (Postgres 17 on new projects), so pin 17 from PGDG.
       - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
       - name: Dump database
         env:

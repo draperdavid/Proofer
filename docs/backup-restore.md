@@ -2,7 +2,7 @@
 
 Self-managed backups: a scheduled GitHub Action (`.github/workflows/backup.yml`) runs
 `pg_dump` against the database and writes a timestamped, gzipped dump to the
-`proofer-backups` R2 bucket (versioning enabled, so even an overwrite is recoverable).
+`proofer-backups` R2 bucket. Every dump gets a unique timestamped name, so nothing is ever overwritten (R2 has no object versioning).
 There is no paid Supabase backup tier — this pipeline, tested, is the safety net.
 
 **A backup that has never been restored is not a backup.** Run the restore drill below
@@ -11,7 +11,7 @@ trust an old dump for real.
 
 ## Where dumps live
 
-- Bucket: `proofer-backups` (Cloudflare R2, versioning on)
+- Bucket: `proofer-backups` (Cloudflare R2)
 - Filename: `proofer-<UTC timestamp>.sql.gz`, e.g. `proofer-20260918T080000Z.sql.gz`
 - Schedule: daily at 08:00 UTC, plus on-demand via the workflow's "Run workflow" button
   in GitHub Actions
@@ -60,9 +60,10 @@ Repository secrets — not environment-scoped, since this workflow doesn't use a
 
 | Secret | Where to get it |
 | --- | --- |
-| `SUPABASE_DB_URL` | Supabase dashboard → Project Settings → Database → Connection string (URI). Contains the DB password — treat as fully sensitive. |
+| `SUPABASE_DB_URL` | Supabase dashboard → Connect → **Session pooler** connection string (URI), with the DB password filled in. Not the Direct connection: that one is IPv6-only and GitHub runners can't reach it. Contains the DB password — treat as fully sensitive. |
 | `R2_ACCOUNT_ID` | Cloudflare dashboard → R2 → Overview (same account ID used for Workers). |
 | `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | Cloudflare dashboard → R2 → Manage API tokens → Create API token, scoped to the `proofer-backups` bucket only, Object Read & Write. |
 
-Also required: an R2 bucket named `proofer-backups` with **bucket versioning enabled**
-(Cloudflare dashboard → R2 → Create bucket → Settings → Versioning).
+Also required: an R2 bucket named `proofer-backups` (Cloudflare dashboard → R2 → Create
+bucket). R2 must be enabled on the account first, which asks for a payment method even on
+the free tier.
