@@ -17,8 +17,9 @@ name = "proofer-staging"
 directory = ".open-next/assets"
 binding = "ASSETS"
 
-# R2 bucket binding is added in Phase 5 once the media bucket exists (R2 is deferred for now).
-# r2.ts uses the S3-compatible API with access keys instead, so no binding is needed yet.
+# No R2 binding: galleries (Phase 5) need presigned URLs so media goes
+# browser <-> R2 directly, which needs the S3-compatible API with access keys
+# (r2.ts + the R2_* secrets below), not a binding.
 
 # Secrets are set via the Cloudflare dashboard or `wrangler secret put`, never here:
 # NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
