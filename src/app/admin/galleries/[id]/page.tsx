@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { presignGet, r2Configured } from "@/lib/r2";
+import { GRID_SIZE, MAX_VARIANT_ATTEMPTS, displayKey } from "@/lib/galleries/variants";
 import {
   createSet,
   deleteAsset,
@@ -41,14 +42,15 @@ export default async function CollectionDetailPage({ params }: { params: Promise
   const assets = (assetsRes.data ?? []) as MediaAsset[];
   const storageReady = r2Configured();
 
-  // Thumbnails are short-lived presigned GETs of the original until 5.2 adds
-  // small variants. Signing is local crypto, no request to R2 per photo.
+  // Thumbnails are short-lived presigned GETs of the 640 variant, or of the
+  // original until the variants job has made it. Signing is local crypto, no
+  // request to R2 per photo.
   const thumbs = new Map<string, string>();
   if (storageReady) {
     await Promise.all(
       assets
         .filter((a) => a.status === "uploaded")
-        .map(async (a) => thumbs.set(a.id, await presignGet(a.r2_key)))
+        .map(async (a) => thumbs.set(a.id, await presignGet(displayKey(a, GRID_SIZE))))
     );
   }
 
@@ -150,6 +152,13 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                     <div style={{ fontSize: "0.8rem", wordBreak: "break-all" }}>
                       {asset.original_filename} · {formatBytes(asset.size_bytes)}
                     </div>
+                    {asset.status === "uploaded" && !asset.variants_ready && (
+                      <div style={{ fontSize: "0.8rem" }} title={asset.variant_error ?? undefined}>
+                        {asset.variant_attempts >= MAX_VARIANT_ATTEMPTS
+                          ? "Sizes failed — see error on hover"
+                          : "Sizes processing…"}
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: "0.25rem" }}>
                       <form action={up}>
                         <button type="submit" disabled={j === 0}>

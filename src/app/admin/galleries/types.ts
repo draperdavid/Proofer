@@ -1,3 +1,5 @@
+import type { Variants } from "@/lib/galleries/variants";
+
 export type Collection = {
   id: string;
   name: string;
@@ -27,4 +29,8 @@ export type MediaAsset = {
   status: "pending" | "uploaded";
   position: number;
   created_at: string;
+  variants: Variants;
+  variants_ready: boolean;
+  variant_attempts: number;
+  variant_error: string | null;
 };
