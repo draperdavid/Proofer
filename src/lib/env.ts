@@ -26,5 +26,8 @@ export const env = {
   // Sentry DSNs are not secret (Sentry's own docs say they're safe in client code),
   // so this is NEXT_PUBLIC_ like the Supabase URL/anon key, not a plain secret.
   sentryDsn: () => optional("NEXT_PUBLIC_SENTRY_DSN"),
+  // Signs gallery unlock cookies (Phase 5.3). Optional so pages still render
+  // before it's set; password galleries just can't be unlocked until then.
+  galleryAccessSecret: () => optional("GALLERY_ACCESS_SECRET"),
   appBaseUrl: () => process.env.APP_BASE_URL || "http://localhost:3000",
 };

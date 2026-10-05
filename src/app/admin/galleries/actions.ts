@@ -15,6 +15,13 @@ import {
   validateUpload,
   type UploadRequest,
 } from "@/lib/galleries/media-rules";
+import {
+  VISIBILITIES,
+  hashPassword,
+  normalizePassword,
+  validatePassword,
+  type Visibility,
+} from "@/lib/galleries/access";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -87,6 +94,51 @@ export async function setCollectionStatus(id: string, status: "draft" | "publish
   const { error } = await db
     .from("collections")
     .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+
+  revalidateCollection(id);
+}
+
+// Visibility + gallery password (5.3). The password is hashed here and never
+// stored or echoed in plaintext. Changing visibility or setting a new password
+// bumps access_version, which signs every visitor out of this gallery.
+export async function updateCollectionAccess(id: string, formData: FormData) {
+  const visibility = String(formData.get("visibility") ?? "") as Visibility;
+  if (!VISIBILITIES.includes(visibility)) throw new Error("Invalid visibility");
+  const password = normalizePassword(String(formData.get("password") ?? ""));
+
+  const db = supabaseAdmin();
+  const { data: current, error: loadErr } = await db
+    .from("collections")
+    .select("visibility, password_hash, access_version")
+    .eq("id", id)
+    .single();
+  if (loadErr) throw loadErr;
+
+  let passwordHash: string | null = null;
+  if (visibility === "password") {
+    if (password) {
+      validatePassword(password);
+      passwordHash = await hashPassword(password);
+    } else if (current.password_hash) {
+      passwordHash = current.password_hash;
+    } else {
+      throw new Error("Set a password to make this gallery password-protected");
+    }
+  }
+
+  const changed = visibility !== current.visibility || passwordHash !== current.password_hash;
+  if (!changed) return;
+
+  const { error } = await db
+    .from("collections")
+    .update({
+      visibility,
+      password_hash: passwordHash,
+      access_version: current.access_version + 1,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id);
   if (error) throw error;
 

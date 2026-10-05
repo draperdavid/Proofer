@@ -1,4 +1,5 @@
 import type { Variants } from "@/lib/galleries/variants";
+import type { Visibility } from "@/lib/galleries/access";
 
 export type Collection = {
   id: string;
@@ -6,6 +7,9 @@ export type Collection = {
   slug: string;
   event_date: string | null;
   status: "draft" | "published";
+  visibility: Visibility;
+  password_hash: string | null;
+  access_version: number;
   created_at: string;
   updated_at: string;
 };

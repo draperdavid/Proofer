@@ -13,7 +13,10 @@ import {
   renameSet,
   setCollectionStatus,
   updateCollection,
+  updateCollectionAccess,
 } from "../actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/galleries/access";
+import { accessSecret } from "@/lib/galleries/viewer-access";
 import { CollectionFields } from "../collection-fields";
 import { Uploader } from "../uploader";
 import type { Collection, MediaAsset, PhotoSet } from "../types";
@@ -55,6 +58,8 @@ export default async function CollectionDetailPage({ params }: { params: Promise
   }
 
   const updateThis = updateCollection.bind(null, collection.id);
+  const updateAccess = updateCollectionAccess.bind(null, collection.id);
+  const accessSecretSet = accessSecret() !== null;
   const toggleStatus = setCollectionStatus.bind(
     null,
     collection.id,
@@ -82,6 +87,39 @@ export default async function CollectionDetailPage({ params }: { params: Promise
         <CollectionFields collection={collection} />
         <button type="submit">Save details</button>
       </form>
+
+      <h2>Access</h2>
+      <p>
+        Client link: <Link href={`/g/${collection.slug}`}>/g/{collection.slug}</Link>
+        {collection.status === "draft" && " (not viewable until published)"}
+      </p>
+      <form action={updateAccess}>
+        <div>
+          <label htmlFor="visibility">Visibility</label>
+          <select id="visibility" name="visibility" defaultValue={collection.visibility}>
+            <option value="public">Public: anyone with the link</option>
+            <option value="password">Password: anyone with the link and password</option>
+            <option value="private">Private: closed to everyone for now</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="password">
+            Gallery password ({collection.password_hash ? "set; blank keeps it" : "not set"}, min{" "}
+            {MIN_PASSWORD_LENGTH} characters)
+          </label>
+          <input id="password" name="password" type="password" autoComplete="new-password" />
+        </div>
+        <button type="submit">Save access</button>
+      </form>
+      {collection.visibility === "private" && (
+        <p>Private galleries can&apos;t be opened by clients until client sign-in for galleries is set up.</p>
+      )}
+      {collection.visibility === "password" && !accessSecretSet && (
+        <p role="alert">
+          Clients can&apos;t unlock password galleries yet: GALLERY_ACCESS_SECRET isn&apos;t set on this environment.
+        </p>
+      )}
+      <p style={{ fontSize: "0.8rem" }}>Changing visibility or the password signs every visitor out.</p>
 
       <h2>Upload photos</h2>
       {storageReady ? (
