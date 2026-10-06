@@ -44,6 +44,17 @@ export async function presignGet(key: string, expiresInSeconds = 900) {
   return getSignedUrl(r2Client(), command, { expiresIn: expiresInSeconds });
 }
 
+// A GET that R2 serves as a file download (Content-Disposition is part of the
+// signature, so the client can't change it).
+export async function presignDownload(key: string, contentDisposition: string, expiresInSeconds: number) {
+  const command = new GetObjectCommand({
+    Bucket: env.r2().bucket,
+    Key: key,
+    ResponseContentDisposition: contentDisposition,
+  });
+  return getSignedUrl(r2Client(), command, { expiresIn: expiresInSeconds });
+}
+
 // Returns the stored object's size, or null if it doesn't exist.
 export async function headObjectSize(key: string): Promise<number | null> {
   try {
