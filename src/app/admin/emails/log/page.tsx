@@ -9,7 +9,9 @@ type LogRow = {
   template_key: string;
   to_email: string;
   subject: string;
-  status: "sent" | "failed" | "skipped";
+  status: "pending" | "sent" | "failed" | "skipped";
+  delivery_status: string | null;
+  delivery_detail: string | null;
   error: string | null;
   contact_id: string | null;
   created_at: string;
@@ -18,7 +20,7 @@ type LogRow = {
 export default async function EmailLogPage() {
   const { data, error } = await supabaseAdmin()
     .from("email_log")
-    .select("id, template_key, to_email, subject, status, error, contact_id, created_at")
+    .select("id, template_key, to_email, subject, status, error, contact_id, created_at, delivery_status, delivery_detail")
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -39,6 +41,7 @@ export default async function EmailLogPage() {
             <th>To</th>
             <th>Subject</th>
             <th>Status</th>
+            <th>Delivery</th>
           </tr>
         </thead>
         <tbody>
@@ -52,11 +55,17 @@ export default async function EmailLogPage() {
                 {r.status}
                 {r.error && r.status !== "sent" ? `: ${r.error}` : ""}
               </td>
+              <td title={r.delivery_detail ?? undefined}>
+                {r.delivery_status ?? (r.status === "sent" ? "awaiting report" : "")}
+                {r.delivery_detail && (r.delivery_status === "bounced" || r.delivery_status === "complained")
+                  ? `: ${r.delivery_detail}`
+                  : ""}
+              </td>
             </tr>
           ))}
           {rows.length === 0 && (
             <tr>
-              <td colSpan={5}>Nothing sent yet.</td>
+              <td colSpan={6}>Nothing sent yet.</td>
             </tr>
           )}
         </tbody>

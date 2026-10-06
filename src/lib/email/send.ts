@@ -96,6 +96,22 @@ export async function sendTemplatedEmail(opts: {
 
 async function deliver(to: string, email: RenderedEmail): Promise<SendResult> {
   if (!isSendableEmail(to)) return { status: "failed", error: "Not a valid email address" };
+  // Addresses that hard-bounced or reported spam are never mailed again until
+  // David clears them (Phase 8.4); mailing them anyway hurts the domain.
+  const { data: suppressed, error: supErr } = await supabaseAdmin()
+    .from("email_suppressions")
+    .select("reason, created_at")
+    .eq("email", to)
+    .maybeSingle();
+  // 42P01 = table not migrated yet on this environment: nothing is suppressed.
+  if (supErr && supErr.code !== "42P01") return { status: "failed", error: "Couldn't check the address against bounces" };
+  if (suppressed) {
+    const when = String(suppressed.created_at).slice(0, 10);
+    return {
+      status: "skipped",
+      reason: suppressed.reason === "complained" ? `Marked as spam on ${when}` : `Address bounced on ${when}`,
+    };
+  }
   if (!env.resendConfigured()) {
     return { status: "skipped", reason: "Resend isn't configured (RESEND_API_KEY / RESEND_FROM_EMAIL)" };
   }

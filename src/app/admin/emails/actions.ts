@@ -58,3 +58,13 @@ export async function sendTestEmail(rawKey: string) {
   revalidatePath("/admin/emails/log");
   redirect(`/admin/emails/${key}?test=${result.status}`);
 }
+
+// Lets an address receive email again (Phase 8.4), e.g. after the client
+// fixed a typo'd address or asked to be mailed again.
+export async function clearSuppression(email: string, returnTo: string) {
+  const { error } = await supabaseAdmin().from("email_suppressions").delete().eq("email", email.trim().toLowerCase());
+  if (error) throw error;
+  revalidatePath("/admin/emails");
+  // Only ever bounce back to an admin page.
+  redirect(returnTo.startsWith("/admin/") ? returnTo : "/admin/emails");
+}

@@ -18,6 +18,9 @@ export const env = {
   resendFrom: () => required("RESEND_FROM_EMAIL"),
   // Email (Phase 8.1) sends only when both are set; otherwise sends are
   // logged as skipped, so staging works before the domain is verified.
+  // Verifies Resend's delivery webhook (Phase 8.4); the endpoint refuses
+  // everything until it's set.
+  resendWebhookSecret: () => optional("RESEND_WEBHOOK_SECRET"),
   resendConfigured: () => Boolean(optional("RESEND_API_KEY") && optional("RESEND_FROM_EMAIL")),
   r2: () => ({
     accountId: required("R2_ACCOUNT_ID"),
