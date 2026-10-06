@@ -3,6 +3,7 @@
 // Client gallery grid + lightbox (Phase 5.4). All URLs arrive presigned from
 // the server; this component only decides which one to show. Downloads go
 // through /g/[slug]/download/[id], which re-checks access before signing.
+// Hearts (5.6) flip immediately and roll back if the server says no.
 import { useCallback, useEffect, useState } from "react";
 
 export type GridPhoto = {
@@ -11,10 +12,74 @@ export type GridPhoto = {
   gridUrl: string;
   largeUrl: string;
   downloadHref: string;
+  favorited: boolean;
 };
 
-export function GalleryGrid({ photos }: { photos: GridPhoto[] }) {
+type ToggleFavorite = (assetId: string) => Promise<{ ok: true; favorited: boolean } | { ok: false; error: string }>;
+
+export function GalleryGrid({
+  photos,
+  toggleFavorite,
+  emptyText = "No photos in this set yet.",
+}: {
+  photos: GridPhoto[];
+  toggleFavorite: ToggleFavorite | null;
+  emptyText?: string;
+}) {
   const [open, setOpen] = useState<number | null>(null);
+  const [favorites, setFavorites] = useState(() => new Set(photos.filter((p) => p.favorited).map((p) => p.id)));
+  const [favError, setFavError] = useState<string | null>(null);
+
+  const flip = useCallback((id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const onHeart = useCallback(
+    async (id: string) => {
+      if (!toggleFavorite) return;
+      setFavError(null);
+      flip(id);
+      try {
+        const res = await toggleFavorite(id);
+        if (!res.ok) {
+          flip(id);
+          setFavError(res.error);
+        } else {
+          setFavorites((prev) => {
+            const next = new Set(prev);
+            if (res.favorited) next.add(id);
+            else next.delete(id);
+            return next;
+          });
+        }
+      } catch {
+        flip(id);
+        setFavError("Couldn't save that favorite. Please try again.");
+      }
+    },
+    [toggleFavorite, flip]
+  );
+
+  function heart(photo: GridPhoto, color?: string) {
+    if (!toggleFavorite) return null;
+    const on = favorites.has(photo.id);
+    return (
+      <button
+        type="button"
+        onClick={() => onHeart(photo.id)}
+        aria-pressed={on}
+        aria-label={on ? `Remove ${photo.label} from favorites` : `Add ${photo.label} to favorites`}
+        style={{ background: "none", border: 0, cursor: "pointer", fontSize: "1.1rem", color: color ?? "inherit" }}
+      >
+        {on ? "♥" : "♡"}
+      </button>
+    );
+  }
 
   const close = useCallback(() => setOpen(null), []);
   const step = useCallback(
@@ -33,12 +98,13 @@ export function GalleryGrid({ photos }: { photos: GridPhoto[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close, step]);
 
-  if (photos.length === 0) return <p>No photos in this set yet.</p>;
+  if (photos.length === 0) return <p>{emptyText}</p>;
 
   const current = open === null ? null : photos[open];
 
   return (
     <>
+      {favError && <p role="alert">{favError}</p>}
       <ul
         style={{
           listStyle: "none",
@@ -63,9 +129,12 @@ export function GalleryGrid({ photos }: { photos: GridPhoto[] }) {
                 style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }}
               />
             </button>
-            <a href={photo.downloadHref} style={{ fontSize: "0.8rem" }}>
-              Download
-            </a>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <a href={photo.downloadHref} style={{ fontSize: "0.8rem" }}>
+                Download
+              </a>
+              {heart(photo)}
+            </div>
           </li>
         ))}
       </ul>
@@ -108,6 +177,7 @@ export function GalleryGrid({ photos }: { photos: GridPhoto[] }) {
             <a href={current.downloadHref} style={{ color: "#fff" }}>
               Download
             </a>
+            {heart(current, "#fff")}
             <button type="button" onClick={close} aria-label="Close">
               ✕
             </button>

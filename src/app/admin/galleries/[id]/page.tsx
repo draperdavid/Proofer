@@ -14,6 +14,7 @@ import {
   setCollectionStatus,
   updateCollection,
   updateCollectionAccess,
+  updateCollectionLink,
 } from "../actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/galleries/access";
 import { accessSecret } from "@/lib/galleries/viewer-access";
@@ -31,18 +32,49 @@ export default async function CollectionDetailPage({ params }: { params: Promise
   const { id } = await params;
 
   const db = supabaseAdmin();
-  const [collectionRes, setsRes, assetsRes] = await Promise.all([
+  const [collectionRes, setsRes, assetsRes, contactsRes, projectsRes, favsRes] = await Promise.all([
     db.from("collections").select("*").eq("id", id).single(),
     db.from("photo_sets").select("*").eq("collection_id", id).order("position"),
     db.from("media_assets").select("*").eq("collection_id", id).order("position"),
+    db.from("contacts").select("id, name, email").order("name"),
+    db.from("projects").select("id, title, contact_id").eq("archived", false).order("created_at", { ascending: false }),
+    db.from("favorites").select("asset_id, visitor_email, created_at").eq("collection_id", id).order("created_at"),
   ]);
   if (collectionRes.error || !collectionRes.data) notFound();
   if (setsRes.error) throw setsRes.error;
   if (assetsRes.error) throw assetsRes.error;
+  if (contactsRes.error) throw contactsRes.error;
+  if (projectsRes.error) throw projectsRes.error;
+  if (favsRes.error) throw favsRes.error;
 
   const collection = collectionRes.data as Collection;
   const sets = (setsRes.data ?? []) as PhotoSet[];
   const assets = (assetsRes.data ?? []) as MediaAsset[];
+  const contacts = (contactsRes.data ?? []) as { id: string; name: string; email: string | null }[];
+  const projects = (projectsRes.data ?? []) as { id: string; title: string; contact_id: string | null }[];
+  // The linked project may be archived; keep it selectable so saving the
+  // form doesn't silently unlink it.
+  if (collection.project_id && !projects.some((p) => p.id === collection.project_id)) {
+    const { data } = await db
+      .from("projects")
+      .select("id, title, contact_id")
+      .eq("id", collection.project_id)
+      .maybeSingle();
+    if (data) projects.unshift({ ...data, title: `${data.title} (archived)` });
+  }
+
+  // Favorites grouped by the visitor's email, labelled with the contact who
+  // has that email (if any). The email is self-reported, not verified.
+  const contactByEmail = new Map(
+    contacts.filter((c) => c.email).map((c) => [c.email!.trim().toLowerCase(), c] as const)
+  );
+  const assetById = new Map(assets.map((a) => [a.id, a]));
+  const favoritesByVisitor = new Map<string, MediaAsset[]>();
+  for (const f of favsRes.data ?? []) {
+    const asset = assetById.get(f.asset_id);
+    if (!asset) continue;
+    favoritesByVisitor.set(f.visitor_email, [...(favoritesByVisitor.get(f.visitor_email) ?? []), asset]);
+  }
   const storageReady = r2Configured();
 
   // Thumbnails are short-lived presigned GETs of the 640 variant, or of the
@@ -59,6 +91,7 @@ export default async function CollectionDetailPage({ params }: { params: Promise
 
   const updateThis = updateCollection.bind(null, collection.id);
   const updateAccess = updateCollectionAccess.bind(null, collection.id);
+  const updateLink = updateCollectionLink.bind(null, collection.id);
   const accessSecretSet = accessSecret() !== null;
   const toggleStatus = setCollectionStatus.bind(
     null,
@@ -87,6 +120,40 @@ export default async function CollectionDetailPage({ params }: { params: Promise
         <CollectionFields collection={collection} />
         <button type="submit">Save details</button>
       </form>
+
+      <h2>Client</h2>
+      <form action={updateLink}>
+        <div>
+          <label htmlFor="contact_id">Contact</label>
+          <select id="contact_id" name="contact_id" defaultValue={collection.contact_id ?? ""}>
+            <option value="">None</option>
+            {contacts.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {c.email ? ` (${c.email})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="project_id">Project</label>
+          <select id="project_id" name="project_id" defaultValue={collection.project_id ?? ""}>
+            <option value="">None</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button type="submit">Save client link</button>
+      </form>
+      <p style={{ fontSize: "0.8rem" }}>
+        {collection.project_id && <Link href={`/admin/projects/${collection.project_id}`}>Open project</Link>}
+        {collection.project_id && collection.contact_id && " · "}
+        {collection.contact_id && <Link href={`/admin/contacts/${collection.contact_id}`}>Open contact</Link>}
+        {!collection.project_id && !collection.contact_id && "Picking only a project also links its contact."}
+      </p>
 
       <h2>Access</h2>
       <p>
@@ -226,6 +293,52 @@ export default async function CollectionDetailPage({ params }: { params: Promise
         <input type="text" name="name" placeholder="Set name" required />
         <button type="submit">Add set</button>
       </form>
+
+      <h2>Favorites</h2>
+      {favoritesByVisitor.size === 0 && <p>No favorites yet.</p>}
+      {[...favoritesByVisitor].map(([email, picks]) => {
+        const contact = contactByEmail.get(email);
+        return (
+          <section key={email}>
+            <h3>
+              {contact ? <Link href={`/admin/contacts/${contact.id}`}>{contact.name}</Link> : email}
+              {contact && ` (${email})`} · {picks.length} favorite{picks.length === 1 ? "" : "s"}
+            </h3>
+            <ul style={{ listStyle: "none", padding: 0, display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              {picks.map((asset) => {
+                const thumb = thumbs.get(asset.id);
+                return (
+                  <li key={asset.id} style={{ width: "6rem", fontSize: "0.7rem", wordBreak: "break-all" }}>
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={asset.original_filename}
+                        loading="lazy"
+                        style={{ width: "6rem", height: "6rem", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <div style={{ width: "6rem", height: "6rem", background: "#eee" }} />
+                    )}
+                    {asset.original_filename}
+                  </li>
+                );
+              })}
+            </ul>
+            <details>
+              <summary>Filenames to copy</summary>
+              <textarea
+                readOnly
+                rows={3}
+                style={{ width: "100%" }}
+                defaultValue={picks.map((a) => a.original_filename).join(", ")}
+              />
+            </details>
+          </section>
+        );
+      })}
+      <p style={{ fontSize: "0.8rem" }}>
+        Clients name themselves by email when they favorite; the email isn&apos;t verified.
+      </p>
 
       <h2>Danger zone</h2>
       <form action={deleteThis}>

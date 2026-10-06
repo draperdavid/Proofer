@@ -61,9 +61,14 @@ function revalidateCollection(id: string) {
 
 export async function createCollection(formData: FormData) {
   const fields = collectionFields(formData);
+  const link = await resolveLink(null, str(formData.get("project_id")));
 
   const db = supabaseAdmin();
-  const { data, error } = await db.from("collections").insert(fields).select("id").single();
+  const { data, error } = await db
+    .from("collections")
+    .insert({ ...fields, ...link })
+    .select("id")
+    .single();
   if (error) rethrow(error, fields.slug);
 
   // Pixieset's default: every collection starts with one "Highlights" set.
@@ -71,6 +76,7 @@ export async function createCollection(formData: FormData) {
   if (setErr) throw setErr;
 
   revalidatePath("/admin/galleries");
+  if (link.project_id) revalidatePath(`/admin/projects/${link.project_id}`);
   redirect(`/admin/galleries/${data.id}`);
 }
 
@@ -143,6 +149,34 @@ export async function updateCollectionAccess(id: string, formData: FormData) {
   if (error) throw error;
 
   revalidateCollection(id);
+}
+
+// CRM link (5.6). Picking only a project also links that project's contact,
+// since a gallery for a project is that client's gallery.
+async function resolveLink(contactId: string | null, projectId: string | null) {
+  if (!projectId) return { contact_id: contactId, project_id: null };
+
+  const { data: project, error } = await supabaseAdmin()
+    .from("projects")
+    .select("id, contact_id")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!project) throw new Error("That project no longer exists");
+  return { contact_id: contactId ?? project.contact_id, project_id: project.id };
+}
+
+export async function updateCollectionLink(id: string, formData: FormData) {
+  const link = await resolveLink(str(formData.get("contact_id")), str(formData.get("project_id")));
+
+  const { error } = await supabaseAdmin()
+    .from("collections")
+    .update({ ...link, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+
+  revalidateCollection(id);
+  if (link.project_id) revalidatePath(`/admin/projects/${link.project_id}`);
 }
 
 // R2 objects go first: if that fails the rows survive and the delete can be

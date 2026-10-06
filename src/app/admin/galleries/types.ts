@@ -10,6 +10,8 @@ export type Collection = {
   visibility: Visibility;
   password_hash: string | null;
   access_version: number;
+  contact_id: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 };

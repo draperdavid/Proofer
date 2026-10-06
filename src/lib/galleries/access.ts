@@ -132,6 +132,33 @@ async function hmacKey(secret: string): Promise<CryptoKey> {
   ]);
 }
 
+// Generic HMAC over a dot-free payload, shared with the favorites visitor
+// cookie (favorites.ts).
+export async function signPayload(secret: string, payload: string): Promise<string> {
+  const sig = await crypto.subtle.sign("HMAC", await hmacKey(secret), new TextEncoder().encode(payload));
+  return toBase64Url(new Uint8Array(sig));
+}
+
+export async function verifyPayload(secret: string, payload: string, sigPart: string): Promise<boolean> {
+  const sig = fromBase64Url(sigPart);
+  if (!sig) return false;
+  return crypto.subtle.verify("HMAC", await hmacKey(secret), sig, new TextEncoder().encode(payload));
+}
+
+export function encodeText(value: string): string {
+  return toBase64Url(new TextEncoder().encode(value));
+}
+
+export function decodeText(value: string): string | null {
+  const bytes = fromBase64Url(value);
+  if (!bytes) return null;
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
 export async function signUnlockToken(
   secret: string,
   claim: { collectionId: string; accessVersion: number; expiresAt: number }

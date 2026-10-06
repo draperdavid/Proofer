@@ -33,6 +33,7 @@ export default async function ProjectDetailPage({
     { data: questionnaires, error: questionnairesError },
     { data: questionnaireTemplates, error: questionnaireTemplatesError },
     { data: quotes, error: quotesError },
+    { data: galleries, error: galleriesError },
   ] = await Promise.all([
     db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
     db.from("project_stages").select("*").order("position", { ascending: true }),
@@ -42,6 +43,11 @@ export default async function ProjectDetailPage({
     db.from("questionnaires").select("*").eq("project_id", id).order("created_at", { ascending: false }),
     db.from("questionnaire_templates").select("*").order("name", { ascending: true }),
     db.from("quotes").select("*").eq("project_id", id).order("created_at", { ascending: false }),
+    db
+      .from("collections")
+      .select("id, name, status, visibility")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false }),
   ]);
   if (error || !data) notFound();
   if (stagesError) throw stagesError;
@@ -51,6 +57,7 @@ export default async function ProjectDetailPage({
   if (questionnairesError) throw questionnairesError;
   if (questionnaireTemplatesError) throw questionnaireTemplatesError;
   if (quotesError) throw quotesError;
+  if (galleriesError) throw galleriesError;
 
   const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
@@ -104,6 +111,21 @@ export default async function ProjectDetailPage({
           </li>
         ))}
         {(!quotes || quotes.length === 0) && <li>No quotes yet.</li>}
+      </ul>
+
+      <h2>Galleries</h2>
+      <p>
+        <Link href={`/admin/galleries/new?project_id=${project.id}`}>+ New gallery</Link>
+      </p>
+      <ul>
+        {(galleries ?? []).map((g) => (
+          <li key={g.id}>
+            <Link href={`/admin/galleries/${g.id}`}>{g.name}</Link>
+            {" — "}
+            {g.status === "published" ? `published, ${g.visibility}` : "draft"}
+          </li>
+        ))}
+        {(!galleries || galleries.length === 0) && <li>No galleries yet.</li>}
       </ul>
 
       <h2>Contracts</h2>
