@@ -22,7 +22,8 @@ export default async function StagesPage() {
     .from("automation_rules")
     .select("id, stage_id, template_key")
     .order("created_at", { ascending: true });
-  if (rulesErr) throw rulesErr;
+  // Stage emails are an add-on to this page: before migration 0017 runs, the
+  // stage editor still works and the email section says why it's missing.
   const rules = (ruleRows ?? []) as { id: string; stage_id: string; template_key: string }[];
 
   return (
@@ -97,6 +98,7 @@ export default async function StagesPage() {
       <p>Deleting a stage moves its projects to the remaining stage with the lowest position.</p>
 
       <h2>Stage emails</h2>
+      {rulesErr && <p role="alert">Stage emails need migration 0017 on this database.</p>}
       <p>
         When a project enters a stage, its contact gets these emails. Each goes out once per project, even if the card
         moves back and forth. Edit the wording under <Link href="/admin/emails">Emails</Link>.
