@@ -16,6 +16,9 @@ export const env = {
   stripeWebhookSecret: () => required("STRIPE_WEBHOOK_SECRET"),
   resendApiKey: () => required("RESEND_API_KEY"),
   resendFrom: () => required("RESEND_FROM_EMAIL"),
+  // Email (Phase 8.1) sends only when both are set; otherwise sends are
+  // logged as skipped, so staging works before the domain is verified.
+  resendConfigured: () => Boolean(optional("RESEND_API_KEY") && optional("RESEND_FROM_EMAIL")),
   r2: () => ({
     accountId: required("R2_ACCOUNT_ID"),
     accessKeyId: required("R2_ACCESS_KEY_ID"),

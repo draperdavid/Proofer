@@ -1,4 +1,4 @@
-// Resend email client. Wired but not exercised until Phase 8.
+// Resend email client. Used through src/lib/email/send.ts (Phase 8.1).
 import { Resend } from "resend";
 import { env } from "./env";
 
