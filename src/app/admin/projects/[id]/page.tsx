@@ -34,6 +34,7 @@ export default async function ProjectDetailPage({
     { data: questionnaireTemplates, error: questionnaireTemplatesError },
     { data: quotes, error: quotesError },
     { data: galleries, error: galleriesError },
+    { data: emails, error: emailsError },
   ] = await Promise.all([
     db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
     db.from("project_stages").select("*").order("position", { ascending: true }),
@@ -48,6 +49,12 @@ export default async function ProjectDetailPage({
       .select("id, name, status, visibility")
       .eq("project_id", id)
       .order("created_at", { ascending: false }),
+    db
+      .from("email_log")
+      .select("id, subject, to_email, status, error, created_at")
+      .eq("project_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
   if (error || !data) notFound();
   if (stagesError) throw stagesError;
@@ -58,6 +65,8 @@ export default async function ProjectDetailPage({
   if (questionnaireTemplatesError) throw questionnaireTemplatesError;
   if (quotesError) throw quotesError;
   if (galleriesError) throw galleriesError;
+  // Email history is a side panel: if its table isn't migrated yet, say so
+  // instead of taking the whole project page down.
 
   const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
@@ -180,6 +189,22 @@ export default async function ProjectDetailPage({
       {!project.contacts && <p>Link a contact to this project before sending a questionnaire.</p>}
       <p>
         <Link href="/admin/questionnaires/templates">Manage questionnaire templates</Link>
+      </p>
+
+      <h2>Emails</h2>
+      <ul>
+        {emailsError && <li>Email history isn&apos;t available yet (run the email migrations).</li>}
+        {!emailsError && (emails ?? []).length === 0 && <li>No emails yet.</li>}
+        {(emails ?? []).map((e) => (
+          <li key={e.id as string}>
+            {new Date(e.created_at as string).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} ·{" "}
+            {e.subject as string} · to {e.to_email as string} · {e.status as string}
+            {e.error && e.status !== "sent" ? `: ${e.error as string}` : ""}
+          </li>
+        ))}
+      </ul>
+      <p>
+        <Link href="/admin/emails/log">All emails</Link>
       </p>
     </main>
   );

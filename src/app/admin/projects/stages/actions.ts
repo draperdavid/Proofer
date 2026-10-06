@@ -4,6 +4,7 @@
 // actions trust the caller and use the service-role client directly.
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isStageTemplate, isTemplateKey } from "@/lib/email/templates";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -113,4 +114,26 @@ export async function deleteStage(id: string) {
   if (deleteErr) throw deleteErr;
 
   revalidateStagesAndBoard();
+}
+
+// Stage email rules (Phase 8.2): entering a stage emails the project's
+// contact. Only templates a project can fill are accepted.
+export async function addStageEmail(stageId: string, formData: FormData) {
+  const key = str(formData.get("template_key"));
+  if (!key || !isTemplateKey(key) || !isStageTemplate(key)) {
+    throw new Error("Pick an email that can be sent on a stage change");
+  }
+  const db = supabaseAdmin();
+  const { error } = await db
+    .from("automation_rules")
+    .upsert({ stage_id: stageId, template_key: key, active: true }, { onConflict: "stage_id,template_key" });
+  if (error) throw error;
+  revalidatePath("/admin/projects/stages");
+}
+
+export async function removeStageEmail(ruleId: string) {
+  const db = supabaseAdmin();
+  const { error } = await db.from("automation_rules").delete().eq("id", ruleId);
+  if (error) throw error;
+  revalidatePath("/admin/projects/stages");
 }

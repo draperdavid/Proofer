@@ -12,7 +12,10 @@ export type TemplateKey =
   | "quote_sent"
   | "contract_sent"
   | "questionnaire_sent"
-  | "booking_confirmation";
+  | "booking_confirmation"
+  | "inquiry_received"
+  | "project_booked"
+  | "project_wrapped";
 
 export type TemplateDef = {
   key: TemplateKey;
@@ -28,6 +31,10 @@ export type TemplateDef = {
 const CONTACT = ["contact.first_name", "contact.name"] as const;
 
 const SAMPLE_CONTACT = { "contact.first_name": "Jordan", "contact.name": "Jordan Ellis" };
+
+// Fields a stage-change email can fill from the project alone (Phase 8.2).
+// Only templates limited to these can be attached to a stage.
+export const PROJECT_FIELDS: readonly string[] = [...CONTACT, "project.title"];
 
 export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   gallery_ready: {
@@ -171,6 +178,49 @@ David`,
       "session.location": "Forsyth Park, Savannah",
     },
   },
+  inquiry_received: {
+    key: "inquiry_received",
+    name: "Inquiry received",
+    description: "Stage email: someone just reached out.",
+    fields: PROJECT_FIELDS,
+    subject: "Got your note",
+    body: `Hi {{contact.first_name}},
+
+Your note came through. I read every one myself, and you'll hear back from me within a couple of days.
+
+David`,
+    sample: { ...SAMPLE_CONTACT, "project.title": "Portrait inquiry" },
+  },
+  project_booked: {
+    key: "project_booked",
+    name: "Project booked",
+    description: "Stage email: the project is confirmed.",
+    fields: PROJECT_FIELDS,
+    subject: "You're on my calendar",
+    body: `Hi {{contact.first_name}},
+
+{{project.title}} is on my calendar. It's happening.
+
+Anything on your mind before then, reply here and you'll get me.
+
+David`,
+    sample: { ...SAMPLE_CONTACT, "project.title": "Ellis Family Session" },
+  },
+  project_wrapped: {
+    key: "project_wrapped",
+    name: "Project wrapped",
+    description: "Stage email: the work is delivered.",
+    fields: PROJECT_FIELDS,
+    subject: "Thank you",
+    body: `Hi {{contact.first_name}},
+
+That's a wrap on {{project.title}}. Thank you for trusting me with it.
+
+If one of those photos ends up on a wall or a fridge, I'd love to see where it landed.
+
+David`,
+    sample: { ...SAMPLE_CONTACT, "project.title": "Ellis Family Session" },
+  },
 };
 
 export const TEMPLATE_KEYS = Object.keys(TEMPLATES) as TemplateKey[];
@@ -178,3 +228,11 @@ export const TEMPLATE_KEYS = Object.keys(TEMPLATES) as TemplateKey[];
 export function isTemplateKey(value: string): value is TemplateKey {
   return Object.prototype.hasOwnProperty.call(TEMPLATES, value);
 }
+
+// A template can run on a stage change only if the project can fill every
+// field it uses.
+export function isStageTemplate(key: TemplateKey): boolean {
+  return TEMPLATES[key].fields.every((f) => PROJECT_FIELDS.includes(f));
+}
+
+export const STAGE_TEMPLATE_KEYS = TEMPLATE_KEYS.filter(isStageTemplate);

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { isRateLimited } from "@/lib/rate-limit";
+import { onStageEntered } from "@/lib/email/triggers";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
       .select("id", { count: "exact", head: true })
       .eq("stage_id", stageId);
 
-    const { error: projectErr } = await db.from("projects").insert({
+    const { data: project, error: projectErr } = await db.from("projects").insert({
       contact_id: contact.id,
       stage_id: stageId,
       title: type ? `${type} inquiry - ${name}` : `Inquiry - ${name}`,
@@ -100,8 +101,11 @@ export async function POST(request: NextRequest) {
       event_date: eventDate,
       description: message,
       position: count ?? 0,
-    });
-    if (projectErr) throw projectErr;
+    }).select("id").single();
+    if (projectErr || !project) throw projectErr ?? new Error("Project insert failed");
+
+    // Inquiry auto-reply, if David attached one to the first stage.
+    await onStageEntered(project.id, stageId);
   } catch {
     return redirectTo(request, "error", "Something went wrong. Please try again.");
   }

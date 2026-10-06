@@ -105,7 +105,7 @@ export default async function QuoteDetailPage({
 
           <h2>Status</h2>
           <form action={quote.status === "draft" ? markSent : markDraft}>
-            <button type="submit">{quote.status === "draft" ? "Mark as sent" : "Revert to draft"}</button>
+            <button type="submit">{quote.status === "draft" ? "Mark as sent and email client" : "Revert to draft"}</button>
           </form>
 
           <form action={deleteThisQuote}>

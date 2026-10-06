@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { onQuestionnaireSent } from "@/lib/email/triggers";
 import type { QuestionnaireField, QuestionnaireFieldType } from "./types";
 
 const FIELD_TYPES: QuestionnaireFieldType[] = [
@@ -137,6 +138,8 @@ export async function sendQuestionnaire(projectId: string, formData: FormData) {
     .select("id")
     .single();
   if (insertError) throw insertError;
+
+  await onQuestionnaireSent(row.id);
 
   revalidatePath(`/admin/projects/${project.id}`);
   redirect(`/admin/questionnaires/${row.id}`);

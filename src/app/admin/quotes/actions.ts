@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { onQuoteSent } from "@/lib/email/triggers";
 import { dollarsToCents } from "../invoices/money";
 import type { QuotePackageLineItem, QuoteStatus } from "./types";
 
@@ -156,6 +157,7 @@ export async function deleteQuote(id: string, projectId: string) {
 export async function updateQuoteStatus(id: string, status: Extract<QuoteStatus, "draft" | "sent">) {
   const db = supabaseAdmin();
   await assertNotAccepted(db, id);
+  const { data: before } = await db.from("quotes").select("status").eq("id", id).single();
 
   const { error } = await db
     .from("quotes")
@@ -163,6 +165,8 @@ export async function updateQuoteStatus(id: string, status: Extract<QuoteStatus,
     .eq("id", id)
     .neq("status", "accepted");
   if (error) throw error;
+
+  if (status === "sent" && before?.status !== "sent") await onQuoteSent(id);
 
   revalidatePath(`/admin/quotes/${id}`);
 }

@@ -93,7 +93,7 @@ export default async function InvoiceDetailPage({
         <>
           <h2>Status</h2>
           <form action={invoice.status === "draft" ? markSent : markDraft}>
-            <button type="submit">{invoice.status === "draft" ? "Mark as sent" : "Revert to draft"}</button>
+            <button type="submit">{invoice.status === "draft" ? "Mark as sent and email client" : "Revert to draft"}</button>
           </form>
           {invoice.status !== "void" && (
             <form action={markVoid}>

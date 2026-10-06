@@ -5,6 +5,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { onStageEntered } from "@/lib/email/triggers";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -49,6 +50,8 @@ export async function createProject(formData: FormData) {
     .single();
   if (error) throw error;
 
+  await onStageEntered(data.id, fields.stage_id);
+
   revalidatePath("/admin/projects");
   revalidatePath(`/admin/contacts/${fields.contact_id}`);
   redirect(`/admin/projects/${data.id}`);
@@ -58,8 +61,11 @@ export async function updateProject(id: string, formData: FormData) {
   const fields = projectFields(formData);
 
   const db = supabaseAdmin();
+  const { data: before, error: beforeErr } = await db.from("projects").select("stage_id").eq("id", id).single();
+  if (beforeErr || !before) throw beforeErr ?? new Error("Project not found");
   const { error } = await db.from("projects").update(fields).eq("id", id);
   if (error) throw error;
+  if (fields.stage_id !== before.stage_id) await onStageEntered(id, fields.stage_id);
 
   revalidatePath("/admin/projects");
   revalidatePath(`/admin/projects/${id}`);
@@ -118,6 +124,8 @@ export async function moveProject(projectId: string, newStageId: string, newInde
       (sourceCards ?? []).map((p, i) => db.from("projects").update({ position: i }).eq("id", p.id))
     );
   }
+
+  if (oldStageId !== newStageId) await onStageEntered(projectId, newStageId);
 
   revalidatePath("/admin/projects");
 }

@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { onInvoiceSent } from "@/lib/email/triggers";
 import { computeInvoiceTotals, dollarsToCents, type LineItemInput } from "./money";
 import type { DiscountType, InvoiceStatus } from "./types";
 
@@ -201,6 +202,8 @@ export async function updateInvoiceStatus(
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+
+  if (status === "sent" && existing.status !== "sent") await onInvoiceSent(id);
 
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/invoices/${id}`);
