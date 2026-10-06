@@ -31,6 +31,8 @@ export default async function AdminHome() {
         <Link href="/admin/availability">Availability</Link>
         {" | "}
         <Link href="/admin/galleries">Galleries</Link>
+        {" | "}
+        <Link href="/admin/store">Store</Link>
       </p>
       <SignOutButton />
     </main>
