@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteTemplate, updateTemplate } from "../../actions";
 import { FieldEditor } from "../../field-editor";
 import type { QuestionnaireTemplate } from "../../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +40,7 @@ export default async function QuestionnaireTemplateDetailPage({
       </form>
 
       <form action={deleteThisTemplate}>
-        <button type="submit">Delete template</button>
+        <ConfirmButton message="Delete this questionnaire template?">Delete template</ConfirmButton>
       </form>
     </main>
   );

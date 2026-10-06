@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteTemplate, updateTemplate } from "../../actions";
 import { SMART_FIELD_TOKENS } from "../../smart-fields";
 import type { ContractTemplate } from "../../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function ContractTemplateDetailPage({
       </form>
 
       <form action={deleteThisTemplate}>
-        <button type="submit">Delete template</button>
+        <ConfirmButton message="Delete this contract template?">Delete template</ConfirmButton>
       </form>
     </main>
   );

@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { addStageEmail, createStage, deleteStage, moveStage, removeStageEmail, renameStage } from "./actions";
 import { STAGE_TEMPLATE_KEYS, TEMPLATES, isTemplateKey } from "@/lib/email/templates";
 import type { ProjectStage } from "../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -76,9 +77,15 @@ export default async function StagesPage() {
                 </td>
                 <td>
                   <form action={remove}>
-                    <button type="submit" disabled={!canDelete}>
-                      Delete
-                    </button>
+                    {canDelete ? (
+                      <ConfirmButton message={`Delete the ${stage.name} stage? Its projects move to the first stage.`}>
+                        Delete
+                      </ConfirmButton>
+                    ) : (
+                      <button type="submit" disabled>
+                        Delete
+                      </button>
+                    )}
                   </form>
                 </td>
               </tr>

@@ -6,6 +6,8 @@ import { PackagesEditor } from "../packages-editor";
 import { packageTotals } from "../totals";
 import { formatCents } from "../../invoices/money";
 import type { Quote, QuotePackage } from "../types";
+import { ClientLink } from "@/app/admin/_components/client-link";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,7 @@ export default async function QuoteDetailPage({
 
       {quote.status === "sent" && (
         <p>
-          Client link: <Link href={`/quote/${quote.id}`}>{`/quote/${quote.id}`}</Link>
+          Client link: <ClientLink path={`/quote/${quote.id}`} />
         </p>
       )}
 
@@ -109,7 +111,7 @@ export default async function QuoteDetailPage({
           </form>
 
           <form action={deleteThisQuote}>
-            <button type="submit">Delete quote</button>
+            <ConfirmButton message="Delete this quote? This can't be undone.">Delete quote</ConfirmButton>
           </form>
         </>
       )}

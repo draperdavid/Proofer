@@ -6,6 +6,7 @@ import { ContactFields } from "../contact-fields";
 import type { Contact } from "../types";
 import type { Project } from "../../projects/types";
 import { clearSuppression } from "../../emails/actions";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function ContactDetailPage({
         <button type="submit">Save changes</button>
       </form>
       <form action={deleteThisContact}>
-        <button type="submit">Delete contact</button>
+        <ConfirmButton message="Delete this contact? This can't be undone.">Delete contact</ConfirmButton>
       </form>
 
       <h2>Projects</h2>

@@ -11,6 +11,7 @@ import type { Contract, ContractTemplate } from "../../contracts/types";
 import { sendQuestionnaire } from "../../questionnaires/actions";
 import type { Questionnaire, QuestionnaireTemplate } from "../../questionnaires/types";
 import type { Quote } from "../../quotes/types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function ProjectDetailPage({
         <button type="submit">Save changes</button>
       </form>
       <form action={deleteThisProject}>
-        <button type="submit">Delete project</button>
+        <ConfirmButton message="Delete this project? This can't be undone.">Delete project</ConfirmButton>
       </form>
 
       <h2>Invoices</h2>
@@ -175,8 +176,8 @@ export default async function ProjectDetailPage({
       </ul>
       {project.contacts && (
         <form action={sendThisQuestionnaire}>
-          <label htmlFor="template_id">Send questionnaire from template</label>
-          <select id="template_id" name="template_id" required>
+          <label htmlFor="questionnaire_template_id">Send questionnaire from template</label>
+          <select id="questionnaire_template_id" name="template_id" required>
             {((questionnaireTemplates ?? []) as QuestionnaireTemplate[]).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Questionnaire } from "../types";
+import { ClientLink } from "@/app/admin/_components/client-link";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export default async function QuestionnaireDetailPage({
         <p>
           Send this link to the client to fill out:
           <br />
-          <code>/questionnaire/{questionnaire.id}</code>
+          <ClientLink path={`/questionnaire/${questionnaire.id}`} />
         </p>
       )}
 

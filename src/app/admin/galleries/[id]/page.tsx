@@ -21,6 +21,7 @@ import { accessSecret } from "@/lib/galleries/viewer-access";
 import { CollectionFields } from "../collection-fields";
 import { Uploader } from "../uploader";
 import type { Collection, MediaAsset, PhotoSet } from "../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -342,7 +343,7 @@ export default async function CollectionDetailPage({ params }: { params: Promise
 
       <h2>Danger zone</h2>
       <form action={deleteThis}>
-        <button type="submit">Delete collection and all its photos</button>
+        <ConfirmButton message="Delete this gallery and every photo in it? This can't be undone.">Delete collection and all its photos</ConfirmButton>
       </form>
     </main>
   );

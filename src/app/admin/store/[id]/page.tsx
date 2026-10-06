@@ -13,6 +13,7 @@ import {
 } from "../actions";
 import { ProductFields } from "../product-fields";
 import type { Product, ProductCategory, ProductVariant } from "../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +150,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
       <h2>Danger zone</h2>
       <form action={deleteThis}>
-        <button type="submit">Delete product</button>
+        <ConfirmButton message="Delete this product?">Delete product</ConfirmButton>
       </form>
     </main>
   );

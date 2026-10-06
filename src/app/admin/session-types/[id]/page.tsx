@@ -5,6 +5,7 @@ import { deleteSessionType, updateSessionType } from "../actions";
 import { SessionTypeFields } from "../session-type-fields";
 import { loadIntakeTemplates } from "../templates";
 import type { SessionType } from "../types";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ export default async function SessionTypeDetailPage({
         <button type="submit">Save changes</button>
       </form>
       <form action={deleteThis}>
-        <button type="submit">Delete session type</button>
+        <ConfirmButton message="Delete this session type?">Delete session type</ConfirmButton>
       </form>
     </main>
   );

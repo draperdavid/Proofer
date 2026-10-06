@@ -80,6 +80,7 @@ export function FieldEditor({ fields }: { fields: QuestionnaireField[] }) {
     <div>
       <input type="hidden" name="fields_json" value={fieldsJson} />
 
+      <div style={{ overflowX: "auto", maxWidth: "100%" }}>
       <table>
         <thead>
           <tr>
@@ -137,6 +138,7 @@ export function FieldEditor({ fields }: { fields: QuestionnaireField[] }) {
           ))}
         </tbody>
       </table>
+      </div>
       <button type="button" onClick={addRow}>
         + Add field
       </button>

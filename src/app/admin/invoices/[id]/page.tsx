@@ -5,6 +5,8 @@ import { deleteInvoice, updateInvoice, updateInvoiceStatus } from "../actions";
 import { LineItemsEditor } from "../line-items-editor";
 import { formatCents } from "../money";
 import type { Invoice, InvoiceLineItem } from "../types";
+import { ClientLink } from "@/app/admin/_components/client-link";
+import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +59,7 @@ export default async function InvoiceDetailPage({
 
       {invoice.status === "sent" && (
         <p>
-          Pay link: <Link href={`/pay/${invoice.id}`}>{`/pay/${invoice.id}`}</Link>
+          Pay link: <ClientLink path={`/pay/${invoice.id}`} />
         </p>
       )}
 
@@ -84,7 +86,7 @@ export default async function InvoiceDetailPage({
           </form>
 
           <form action={deleteThisInvoice}>
-            <button type="submit">Delete invoice</button>
+            <ConfirmButton message="Delete this invoice? This can't be undone.">Delete invoice</ConfirmButton>
           </form>
         </>
       )}
