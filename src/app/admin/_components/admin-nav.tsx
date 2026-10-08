@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { MenuCloser } from "./menu-closer";
 import { gallery, inGalleryApp, isOn as leafOn, studio, type IconName, type Leaf } from "./nav-config";
 
 const ICONS: Record<IconName, string> = {
@@ -121,6 +122,7 @@ export function AdminShell({ email, signOut, children }: { email: string; signOu
         </div>
       </nav>
       <div className="content">{children}</div>
+      <MenuCloser />
     </div>
   );
 }
