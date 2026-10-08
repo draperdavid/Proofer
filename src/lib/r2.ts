@@ -23,6 +23,17 @@ export function r2Client() {
     // browser uploads to R2. Only send checksums where S3 requires them.
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
+    // Workers have no filesystem. Any option left unset makes the SDK look it
+    // up from ~/.aws/config or env via fs.readFile, which throws on Workers
+    // ("[unenv] fs.readFile is not implemented yet!"). Set them all explicitly.
+    useDualstackEndpoint: false,
+    useFipsEndpoint: false,
+    useArnRegion: false,
+    disableS3ExpressSessionAuth: true,
+    defaultsMode: "standard",
+    maxAttempts: 3,
+    retryMode: "standard",
+    userAgentAppId: "proofer",
   });
 }
 
