@@ -46,9 +46,9 @@ export default async function QuoteDetailPage({
       <h1>Quote: {quote.title}</h1>
       <p>
         {quote.projects ? (
-          <Link href={`/admin/projects/${quote.projects.id}`}>Back to {quote.projects.title}</Link>
+          <Link className="back" href={`/admin/projects/${quote.projects.id}`}>← Back to {quote.projects.title}</Link>
         ) : (
-          <Link href="/admin/projects">Back to projects</Link>
+          <Link className="back" href="/admin/projects">← Back to projects</Link>
         )}
       </p>
       <p>

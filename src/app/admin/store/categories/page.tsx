@@ -24,7 +24,7 @@ export default async function CategoriesPage() {
     <main>
       <h1>Store categories</h1>
       <p>
-        <Link href="/admin/store">Back to store</Link>
+        <Link className="back" href="/admin/store">← Back to store</Link>
       </p>
 
       {categories.length === 0 && <p>No categories yet.</p>}

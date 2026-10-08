@@ -30,7 +30,7 @@ export default async function NewQuotePage({
       <main>
         <h1>New quote</h1>
         <p>
-          <Link href={`/admin/projects/${project.id}`}>Back to {project.title}</Link>
+          <Link className="back" href={`/admin/projects/${project.id}`}>← Back to {project.title}</Link>
         </p>
         <p>This project has no linked contact yet. Link a contact before creating a quote.</p>
       </main>
@@ -41,7 +41,7 @@ export default async function NewQuotePage({
     <main>
       <h1>New quote</h1>
       <p>
-        <Link href={`/admin/projects/${project.id}`}>Back to {project.title}</Link>
+        <Link className="back" href={`/admin/projects/${project.id}`}>← Back to {project.title}</Link>
       </p>
       <form action={createQuote}>
         <input type="hidden" name="project_id" value={project.id} />

@@ -14,7 +14,7 @@ export default async function NewProductPage() {
     <main>
       <h1>New product</h1>
       <p>
-        <Link href="/admin/store">Back to store</Link>
+        <Link className="back" href="/admin/store">← Back to store</Link>
       </p>
       <form action={createProduct}>
         <ProductFields categories={(data ?? []) as ProductCategory[]} />

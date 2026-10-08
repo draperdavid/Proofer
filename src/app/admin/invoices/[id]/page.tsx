@@ -45,9 +45,9 @@ export default async function InvoiceDetailPage({
       <h1>Invoice</h1>
       <p>
         {invoice.projects ? (
-          <Link href={`/admin/projects/${invoice.projects.id}`}>Back to {invoice.projects.title}</Link>
+          <Link className="back" href={`/admin/projects/${invoice.projects.id}`}>← Back to {invoice.projects.title}</Link>
         ) : (
-          <Link href="/admin/invoices">Back to invoices</Link>
+          <Link className="back" href="/admin/invoices">← Back to invoices</Link>
         )}
       </p>
       <p>

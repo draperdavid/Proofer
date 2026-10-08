@@ -32,9 +32,9 @@ export default async function ContractDetailPage({
       <h1>Contract</h1>
       <p>
         {contract.projects ? (
-          <Link href={`/admin/projects/${contract.projects.id}`}>Back to {contract.projects.title}</Link>
+          <Link className="back" href={`/admin/projects/${contract.projects.id}`}>← Back to {contract.projects.title}</Link>
         ) : (
-          <Link href="/admin/contacts">Back to contacts</Link>
+          <Link className="back" href="/admin/contacts">← Back to contacts</Link>
         )}
       </p>
       <p>

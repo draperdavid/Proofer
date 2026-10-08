@@ -51,10 +51,8 @@ export default async function AvailabilityPage() {
   return (
     <main>
       <h1>Availability</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-        {" | "}
-        <Link href="/admin/session-types">Session types</Link> (booking rules live on each type)
+      <p className="hint">
+        Booking rules live on each <Link href="/admin/session-types">session type</Link>.
       </p>
 
       <table>

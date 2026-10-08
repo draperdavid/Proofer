@@ -61,23 +61,33 @@ export default async function ProjectsPage({
 
   return (
     <main>
-      <h1>Projects</h1>
+      <div className="pagehead">
+        <h1>Projects</h1>
+        <div className="row">
+          <nav className="seg" aria-label="View">
+            <Link href={`/admin/projects?view=board${showArchived ? "&archived=1" : ""}`} className={isListView ? undefined : "on"}>
+              Board
+            </Link>
+            <Link href={`/admin/projects?view=list${showArchived ? "&archived=1" : ""}`} className={isListView ? "on" : undefined}>
+              List
+            </Link>
+          </nav>
+          {showArchived ? (
+            <Link href={`/admin/projects?view=${viewParam}`} className="btn">
+              Active
+            </Link>
+          ) : (
+            <Link href={`/admin/projects?view=${viewParam}&archived=1`} className="btn">
+              Archived
+            </Link>
+          )}
+          <Link href="/admin/projects/stages" className="btn">
+            Manage stages
+          </Link>
+        </div>
+      </div>
 
-      <p>
-        <Link href={`/admin/projects?view=board${showArchived ? "&archived=1" : ""}`}>Board</Link>
-        {" | "}
-        <Link href={`/admin/projects?view=list${showArchived ? "&archived=1" : ""}`}>List</Link>
-        {" | "}
-        {showArchived ? (
-          <Link href={`/admin/projects?view=${viewParam}`}>Active</Link>
-        ) : (
-          <Link href={`/admin/projects?view=${viewParam}&archived=1`}>Archived</Link>
-        )}
-        {" | "}
-        <Link href="/admin/projects/stages">Manage stages</Link>
-      </p>
-
-      <form>
+      <form className="filters">
         <input type="hidden" name="view" value={viewParam} />
         {showArchived && <input type="hidden" name="archived" value="1" />}
         <input type="text" name="q" placeholder="Search title or location" defaultValue={q ?? ""} />

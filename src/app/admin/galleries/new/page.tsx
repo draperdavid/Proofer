@@ -29,9 +29,9 @@ export default async function NewCollectionPage({
       <h1>New collection</h1>
       <p>
         {project ? (
-          <Link href={`/admin/projects/${project.id}`}>Back to {project.title}</Link>
+          <Link className="back" href={`/admin/projects/${project.id}`}>← Back to {project.title}</Link>
         ) : (
-          <Link href="/admin/galleries">Back to galleries</Link>
+          <Link className="back" href="/admin/galleries">← Back to galleries</Link>
         )}
       </p>
       <form action={createCollection}>

@@ -23,9 +23,7 @@ export default async function EmailsPage() {
     <main>
       <TemplatesTabs active="emails" />
       <p>
-        <Link href="/admin">Back to admin</Link>
-        {" | "}
-        <Link href="/admin/emails/log">Send log</Link>
+        <Link href="/admin/emails/log">Open the inbox</Link> to see sent emails and whether they were delivered.
       </p>
 
       {configured ? (

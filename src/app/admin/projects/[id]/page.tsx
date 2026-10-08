@@ -80,9 +80,9 @@ export default async function ProjectDetailPage({
       <h1>Edit project</h1>
       <p>
         {project.contacts ? (
-          <Link href={`/admin/contacts/${project.contacts.id}`}>Back to {project.contacts.name}</Link>
+          <Link className="back" href={`/admin/contacts/${project.contacts.id}`}>← Back to {project.contacts.name}</Link>
         ) : (
-          <Link href="/admin/contacts">Back to contacts</Link>
+          <Link className="back" href="/admin/contacts">← Back to contacts</Link>
         )}
       </p>
       <form action={updateThisProject}>

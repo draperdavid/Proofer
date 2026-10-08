@@ -7,7 +7,7 @@ export type IconName =
   | "user"
   | "dollar"
   | "image"
-  | "folder"
+  | "camera"
   | "mail"
   | "file"
   | "more"
@@ -42,7 +42,7 @@ export const BAR: BarItem[] = [
   { key: "contacts", name: "Contacts", href: "/admin/contacts", icon: "user", on: under("/admin/contacts") },
   { key: "finance", name: "Finance", href: "/admin/invoices", icon: "dollar", on: under("/admin/invoices") },
   { key: "galleries", name: "Galleries", href: "/admin/galleries", icon: "image", on: under("/admin/galleries") },
-  { key: "projects", name: "Projects", href: "/admin/projects", icon: "folder", on: under("/admin/projects"), center: true },
+  { key: "projects", name: "Projects", href: "/admin/projects", icon: "camera", on: under("/admin/projects"), center: true },
   { key: "inbox", name: "Inbox", href: INBOX, icon: "mail", on: under(INBOX) },
   { key: "documents", name: "Documents", href: "/admin/contracts", icon: "file", on: documents },
 ];

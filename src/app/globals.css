@@ -226,7 +226,7 @@ body > main.wide { margin: 0 auto; padding: 40px 20px 80px; }
   box-shadow: var(--card-sh);
 }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--sp-4); margin: var(--sp-4) 0 var(--sp-5); }
-.cards .card { display: block; color: var(--t1); transition: border-color 0.14s, transform 0.14s; }
+.cards .card { display: flex; flex-direction: column; justify-content: space-between; gap: var(--sp-3); min-height: 104px; color: var(--t1); transition: border-color 0.14s, transform 0.14s; }
 .cards a.card:hover { border-color: var(--acc-line); text-decoration: none; transform: translateY(-1px); }
 .card .k { font-size: var(--fs-xs); color: var(--t2); font-weight: 600; }
 .card .v { font-size: var(--fs-xl); font-weight: 700; letter-spacing: -0.5px; margin-top: 2px; }
@@ -463,3 +463,17 @@ details.menu > summary::-webkit-details-marker { display: none; }
 .results { list-style: none; padding: 0 !important; margin: 0 0 var(--sp-5); }
 .results li { display: flex; align-items: center; gap: var(--sp-3); padding: 10px 0; border-bottom: 1px solid var(--bd); margin: 0; }
 .results li a { font-weight: 600; }
+
+/* ---------------------------------------------------------------- spacing */
+/* Controls placed directly in a form sit in a wrapping row with a gap; block-level
+   children (a div of label + input, a table, a paragraph...) each take a full row. */
+main form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+main form > :not(input):not(select):not(button):not(a):not(strong):not(small):not(code):not(span) { flex: 1 1 100%; }
+/* a search / filter bar above a table or board */
+form.filters { margin: 0 0 var(--sp-5); align-items: center; }
+form.filters input:not([type="hidden"]), form.filters select { width: auto; min-width: 190px; flex: 1 1 190px; max-width: 320px; }
+form.filters button { flex: none; }
+/* "Back to ..." links on detail pages */
+a.back { display: inline-block; color: var(--t2); font-size: var(--fs-sm); }
+a.back:hover { color: var(--t1); text-decoration: none; }
+p:has(> a.back) { margin: 0 0 var(--sp-4); }

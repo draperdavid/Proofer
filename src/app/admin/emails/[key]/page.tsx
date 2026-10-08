@@ -37,7 +37,7 @@ export default async function EmailTemplatePage({
     <main>
       <h1>{def.name}</h1>
       <p>
-        <Link href="/admin/emails">Back to emails</Link>
+        <Link className="back" href="/admin/emails">← Back to emails</Link>
       </p>
       <p>{def.description}</p>
       {test && TEST_MESSAGES[test] && <p role="status">{TEST_MESSAGES[test]}</p>}

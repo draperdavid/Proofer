@@ -40,9 +40,9 @@ export default async function QuestionnaireDetailPage({
       <h1>Questionnaire</h1>
       <p>
         {questionnaire.projects ? (
-          <Link href={`/admin/projects/${questionnaire.projects.id}`}>Back to {questionnaire.projects.title}</Link>
+          <Link className="back" href={`/admin/projects/${questionnaire.projects.id}`}>← Back to {questionnaire.projects.title}</Link>
         ) : (
-          <Link href="/admin/contacts">Back to contacts</Link>
+          <Link className="back" href="/admin/contacts">← Back to contacts</Link>
         )}
       </p>
       <p>

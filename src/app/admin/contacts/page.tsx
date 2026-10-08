@@ -40,9 +40,14 @@ export default async function ContactsPage({
 
   return (
     <main>
-      <h1>Contacts</h1>
+      <div className="pagehead">
+        <h1>Contacts</h1>
+        <Link href="/admin/contacts/new" className="btn primary">
+          New contact
+        </Link>
+      </div>
 
-      <form>
+      <form className="filters">
         <input type="text" name="q" placeholder="Search name, email, phone" defaultValue={q ?? ""} />
         <select name="kind" defaultValue={kind ?? ""}>
           <option value="">All kinds</option>
@@ -54,11 +59,7 @@ export default async function ContactsPage({
         {hasFilters && <Link href="/admin/contacts">Clear</Link>}
       </form>
 
-      <p>
-        <Link href="/admin/contacts/new">+ New contact</Link>
-      </p>
-
-      <table>
+            <table>
         <thead>
           <tr>
             <th>Name</th>

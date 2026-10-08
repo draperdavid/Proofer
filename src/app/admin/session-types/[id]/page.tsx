@@ -31,7 +31,7 @@ export default async function SessionTypeDetailPage({
     <main>
       <h1>Edit session type</h1>
       <p>
-        <Link href="/admin/session-types">Back to session types</Link>
+        <Link className="back" href="/admin/session-types">← Back to session types</Link>
       </p>
       <form action={updateThis}>
         <SessionTypeFields sessionType={sessionType} {...templates} />

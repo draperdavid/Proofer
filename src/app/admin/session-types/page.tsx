@@ -13,10 +13,12 @@ export default async function SessionTypesPage() {
 
   return (
     <main>
-      <h1>Session types</h1>
-      <p>
-        <Link href="/admin/session-types/new">+ New session type</Link>
-      </p>
+      <div className="pagehead">
+        <h1>Session types</h1>
+        <Link href="/admin/session-types/new" className="btn primary">
+          New session type
+        </Link>
+      </div>
 
       <table>
         <thead>

@@ -35,15 +35,17 @@ export default async function StorePage() {
 
   return (
     <main>
-      <h1>Store</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-        {" | "}
-        <Link href="/admin/store/categories">Categories</Link>
-      </p>
-      <p>
-        <Link href="/admin/store/new">+ New product</Link>
-      </p>
+      <div className="pagehead">
+        <h1>Store</h1>
+        <div className="row">
+          <Link href="/admin/store/categories" className="btn">
+            Categories
+          </Link>
+          <Link href="/admin/store/new" className="btn primary">
+            New product
+          </Link>
+        </div>
+      </div>
       <p style={{ fontSize: "0.8rem" }}>
         Self-fulfilled products you pack and ship. Clients can buy from galleries once checkout is built (7.2).
       </p>

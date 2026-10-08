@@ -12,7 +12,7 @@ export default async function NewSessionTypePage() {
     <main>
       <h1>New session type</h1>
       <p>
-        <Link href="/admin/session-types">Back to session types</Link>
+        <Link className="back" href="/admin/session-types">← Back to session types</Link>
       </p>
       <form action={createSessionType}>
         <SessionTypeFields {...templates} />

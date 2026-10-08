@@ -43,7 +43,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     <main>
       <h1>{product.name}</h1>
       <p>
-        <Link href="/admin/store">Back to store</Link>
+        <Link className="back" href="/admin/store">← Back to store</Link>
       </p>
 
       <form action={updateThis}>

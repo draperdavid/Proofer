@@ -7,7 +7,7 @@ export default function NewContactPage() {
     <main>
       <h1>New contact</h1>
       <p>
-        <Link href="/admin/contacts">Back to contacts</Link>
+        <Link className="back" href="/admin/contacts">← Back to contacts</Link>
       </p>
       <form action={createContact}>
         <ContactFields />

@@ -27,7 +27,7 @@ export default async function QuestionnaireTemplateDetailPage({
     <main>
       <h1>Edit questionnaire template</h1>
       <p>
-        <Link href="/admin/questionnaires/templates">Back to templates</Link>
+        <Link className="back" href="/admin/questionnaires/templates">← Back to templates</Link>
       </p>
 
       <form action={updateThisTemplate}>

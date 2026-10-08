@@ -27,7 +27,7 @@ export default async function ContractTemplateDetailPage({
     <main>
       <h1>Edit template</h1>
       <p>
-        <Link href="/admin/contracts/templates">Back to templates</Link>
+        <Link className="back" href="/admin/contracts/templates">← Back to templates</Link>
       </p>
       <p>Available smart fields: {SMART_FIELD_TOKENS.join(", ")}</p>
 

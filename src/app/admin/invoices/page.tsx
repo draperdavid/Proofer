@@ -41,9 +41,11 @@ export default async function InvoicesPage({
 
   return (
     <main>
-      <h1>Invoices</h1>
+      <div className="pagehead">
+        <h1>Invoices</h1>
+      </div>
 
-      <form>
+      <form className="filters">
         <select name="status" defaultValue={status ?? ""}>
           <option value="">All statuses</option>
           <option value="draft">Draft</option>

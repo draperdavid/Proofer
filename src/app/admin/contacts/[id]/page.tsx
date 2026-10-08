@@ -42,7 +42,7 @@ export default async function ContactDetailPage({
     <main>
       <h1>Edit contact</h1>
       <p>
-        <Link href="/admin/contacts">Back to contacts</Link>
+        <Link className="back" href="/admin/contacts">← Back to contacts</Link>
       </p>
       {blocked && contact.email && (
         <form

@@ -27,7 +27,7 @@ export default async function NewProjectPage({
     <main>
       <h1>New project for {contact.name}</h1>
       <p>
-        <Link href={`/admin/contacts/${contact.id}`}>Back to contact</Link>
+        <Link className="back" href={`/admin/contacts/${contact.id}`}>← Back to contact</Link>
       </p>
       <form action={createProject}>
         <ProjectFields stages={(stages ?? []) as ProjectStage[]} contactId={contact.id} />
