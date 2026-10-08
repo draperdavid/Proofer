@@ -34,6 +34,8 @@ export function r2Client() {
     maxAttempts: 3,
     retryMode: "standard",
     userAgentAppId: "proofer",
+    authSchemePreference: [],
+    sigv4aSigningRegionSet: [],
   });
 }
 
