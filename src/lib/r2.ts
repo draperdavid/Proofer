@@ -35,6 +35,7 @@ export function r2Client() {
     retryMode: "standard",
     userAgentAppId: "proofer",
     authSchemePreference: [],
+    disableClockSkewCorrection: false,
     sigv4aSigningRegionSet: [],
   });
 }
