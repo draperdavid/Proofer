@@ -186,7 +186,7 @@ body > main.wide { margin: 0 auto; padding: 40px 20px 80px; }
 
 /* kanban board */
 .board { display: flex; gap: var(--sp-4); align-items: stretch; overflow-x: auto; padding-bottom: var(--sp-3); }
-.col { flex: 0 0 250px; min-height: 420px; padding: 0 var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px dashed transparent; transition: background 0.12s, border-color 0.12s; }
+.col { flex: 1 1 0; min-width: 190px; min-height: 420px; padding: 0 var(--sp-2) var(--sp-3); border-radius: var(--r-md); border: 1px dashed transparent; transition: background 0.12s, border-color 0.12s; }
 .col.over { background: var(--acc-soft); border-color: var(--acc-line); }
 .kcard.dragging { opacity: 0.45; }
 .colhead { margin: 0 0 var(--sp-2); padding: 0 2px var(--sp-2); border-bottom: 1px solid var(--bd); font-size: var(--fs-sm); display: flex; justify-content: space-between; align-items: center; }
@@ -459,3 +459,14 @@ td .pills { margin-top: 0; }
   .homegrid { grid-template-columns: 1fr; }
   .rail { position: static; max-height: none; overflow: visible; padding-left: 0; border-left: 0; border-top: 1px solid var(--bd); padding-top: var(--sp-5); }
 }
+
+/* edge-to-edge pages: the board gets the whole width, and the side bars sit at the window edge */
+.content:has(> main.fluid) { max-width: none; }
+.content:has(> main.fluid-r) { padding-right: 0; }
+.content:has(> main.fluid-l) { padding-left: 0; }
+.fluid-r .rail { padding-right: var(--sp-5); }
+.fluid-l > .pagehead { padding-left: var(--sp-6); }
+.fluid-l .inbox-folders { padding-left: var(--sp-3); }
+.fluid-l .inbox-main { padding-right: var(--sp-6); }
+@media (max-width: 1100px) { .content:has(> main.fluid-r) { padding-right: var(--sp-3); } .fluid-r .rail { padding-right: 0; } }
+@media (max-width: 800px) { .content:has(> main.fluid-l) { padding-left: var(--sp-3); } .fluid-l > .pagehead, .fluid-l .inbox-folders { padding-left: 0; } .fluid-l .inbox-main { padding-right: 0; } }

@@ -43,7 +43,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
   const rows = ((list.data ?? []) as LogRow[]).filter((r) => inFolder(r, folder));
 
   return (
-    <main>
+    <main className="fluid fluid-l">
       <div className="pagehead">
         <h1>Inbox</h1>
         <Link href="/admin/emails" className="btn">

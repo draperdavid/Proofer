@@ -91,7 +91,7 @@ export default async function AdminHome({
   const baseQuery = `view=${viewParam}${showArchived ? "&archived=1" : ""}`;
 
   return (
-    <main>
+    <main className="fluid fluid-r">
       <div className="homegrid">
         <div className="homemain">
       <div className="pagehead">
