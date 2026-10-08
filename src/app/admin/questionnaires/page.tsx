@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
+import { DocumentsSwitch } from "../_components/documents-switch";
 import { ClientCell, StatusPill, StatusTabs, one, shortDate } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function QuestionnairesPage({ searchParams }: { searchParam
   return (
     <main>
       <div className="pagehead">
-        <h1>Questionnaires</h1>
+        <DocumentsSwitch active="questionnaires" />
         <Link href="/admin/questionnaires/templates" className="btn">
           View templates
         </Link>

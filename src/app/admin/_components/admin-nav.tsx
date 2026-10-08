@@ -1,30 +1,39 @@
 "use client";
 
-// Admin shell + navigation, modeled on Pixieset's structure: two apps (Studio
-// Manager, Client Gallery) behind a switcher; primary links, then a "Tools"
-// section of expandable groups. Only links to pages that exist.
+// Admin shell: a slim top bar (brand, search, account) and a bottom icon bar
+// (Lark-style) with Projects raised in the center. "More" opens a sheet with
+// everything that doesn't fit on the bar. Items come from nav-config.ts.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { BAR, MORE_GROUPS, activeKey, type BarItem, type IconName } from "./nav-config";
 import { MenuCloser } from "./menu-closer";
-import { gallery, inGalleryApp, isOn as leafOn, studio, type IconName, type Leaf } from "./nav-config";
 
 const ICONS: Record<IconName, string> = {
-  home: "M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",
-  folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
   user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   dollar: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
-  calendar: "M3 5h18v16H3zM16 3v4M8 3v4M3 10h18",
-  file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
-  copy: "M9 9h11v11H9zM5 15H4V4h11v1",
   image: "M3 5h18v14H3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 19",
-  bag: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0",
-  chevron: "M6 9l6 6 6-6",
+  folder: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+  mail: "M3 6h18v12H3zM3 7l9 7 9-7",
+  file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",
 };
 
-function Icon({ name }: { name: IconName }) {
+function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
-    <svg className="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      className="ico"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={name === "more" ? 3 : 1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d={ICONS[name]} />
     </svg>
   );
@@ -32,96 +41,93 @@ function Icon({ name }: { name: IconName }) {
 
 export function AdminShell({ email, signOut, children }: { email: string; signOut: React.ReactNode; children: React.ReactNode }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
-  const [switching, setSwitching] = useState(false);
-  const isGallery = inGalleryApp(pathname);
-  const isOn = (l: Leaf) => leafOn(l, pathname);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const active = activeKey(pathname);
+  const initial = (email[0] ?? "?").toUpperCase();
 
-  const link = (l: Leaf) => (
-    <Link key={l.href} href={l.href} className={`navitem${isOn(l) ? " on" : ""}`}>
-      {l.icon && <Icon name={l.icon} />}
-      {l.name}
+  // Close the sheet on Escape.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMoreOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [moreOpen]);
+
+  const slot = (b: BarItem) => (
+    <Link
+      key={b.key}
+      href={b.href}
+      className={`bi${active === b.key ? " on" : ""}${b.center ? " center" : ""}`}
+      aria-current={active === b.key ? "page" : undefined}
+    >
+      <span className="bicon">
+        <Icon name={b.icon} />
+      </span>
+      <span className="blabel">{b.name}</span>
     </Link>
   );
 
   return (
-    <div className={`shell${open ? " open" : ""}`}>
-      <div className="topbar">
-        <Link href="/admin" className="brand" style={{ padding: 0 }}>
-          Proof<span>er</span>
-        </Link>
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Menu">
-          {open ? "Close" : "Menu"}
-        </button>
-      </div>
-
-      <nav className="side" onClick={() => setOpen(false)}>
+    <div className="app">
+      <header className="top">
         <Link href="/admin" className="brand">
           Proof<span>er</span>
         </Link>
 
-        <div className="switcher" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="switch-btn" onClick={() => setSwitching((s) => !s)} aria-expanded={switching}>
-            <span>{isGallery ? "Client Gallery" : "Studio Manager"}</span>
-            <Icon name="chevron" />
-          </button>
-          {switching && (
-            <div className="switch-menu">
-              <Link href="/admin" className={!isGallery ? "on" : undefined} onClick={() => { setSwitching(false); setOpen(false); }}>
-                Studio Manager
-              </Link>
-              <Link href="/admin/galleries" className={isGallery ? "on" : undefined} onClick={() => { setSwitching(false); setOpen(false); }}>
-                Client Gallery
-              </Link>
-            </div>
-          )}
-        </div>
+        <form action="/admin/search" method="get" role="search" className="search">
+          <Icon name="search" size={16} />
+          <input type="search" name="q" placeholder="Search contacts, projects, galleries" aria-label="Search" />
+        </form>
 
-        {isGallery ? (
-          <>
-            <div className="navgroup">{gallery.primary.map(link)}</div>
-            <div className="navlabel">Tools</div>
-            <div className="navgroup">{gallery.tools.map(link)}</div>
-          </>
-        ) : (
-          <>
-            <div className="navgroup">{studio.primary.map(link)}</div>
-            <div className="navlabel">Tools</div>
-            <div className="navgroup">
-              {studio.tools.map((g) => {
-                const active = g.children.some(isOn);
-                return (
-                  <details key={g.name} className="ngroup" open={active} onClick={(e) => e.stopPropagation()}>
-                    <summary className={`navitem${active ? " parent-on" : ""}`}>
-                      <Icon name={g.icon} />
-                      {g.name}
-                      <span className="caret">
-                        <Icon name="chevron" />
-                      </span>
-                    </summary>
-                    <div className="subnav" onClick={() => setOpen(false)}>
-                      {g.children.map((c) => (
-                        <Link key={c.href} href={c.href} className={`navitem sub${isOn(c) ? " on" : ""}`}>
-                          {c.name}
-                        </Link>
-                      ))}
-                    </div>
-                  </details>
-                );
-              })}
-              {link(studio.templates)}
+        <details className="menu acct">
+          <summary className="avatar big" aria-label="Account">
+            {initial}
+          </summary>
+          <div className="menu-pop">
+            <div className="who" title={email}>
+              {email}
             </div>
-          </>
-        )}
-
-        <div className="sidefoot">
-          <div className="who" title={email}>
-            {email}
+            {signOut}
           </div>
-          {signOut}
-        </div>
-      </nav>
+        </details>
+      </header>
+
       <div className="content">{children}</div>
+
+      {moreOpen && (
+        <>
+          <div className="scrim" onClick={() => setMoreOpen(false)} />
+          <div className="sheet" role="dialog" aria-label="More">
+            {MORE_GROUPS.map((g) => (
+              <div key={g.label}>
+                <div className="slabel">{g.label}</div>
+                {g.links.map((l) => (
+                  <Link key={l.href} href={l.href} className={l.on(pathname) ? "on" : undefined} onClick={() => setMoreOpen(false)}>
+                    {l.name}
+                  </Link>
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <nav className="bar" aria-label="Main">
+        {BAR.slice(0, 4).map(slot)}
+        {BAR.slice(4).map(slot)}
+        <button
+          type="button"
+          className={`bi${active === "more" || moreOpen ? " on" : ""}`}
+          onClick={() => setMoreOpen((o) => !o)}
+          aria-expanded={moreOpen}
+        >
+          <span className="bicon">
+            <Icon name="more" />
+          </span>
+          <span className="blabel">More</span>
+        </button>
+      </nav>
+
       <MenuCloser />
     </div>
   );

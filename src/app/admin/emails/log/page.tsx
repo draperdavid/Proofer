@@ -28,11 +28,11 @@ export default async function EmailLogPage() {
 
   return (
     <main>
-      <h1>Email send log</h1>
+      <h1>Inbox</h1>
       <p>
-        <Link href="/admin/emails">Back to emails</Link>
+        <Link href="/admin/emails">Email templates</Link>
       </p>
-      <p style={{ fontSize: "0.8rem" }}>Latest 100. Times are UTC.</p>
+      <p style={{ fontSize: "0.8rem" }}>Sent emails and whether they were delivered. Latest 100. Times are UTC.</p>
       <table>
         <thead>
           <tr>

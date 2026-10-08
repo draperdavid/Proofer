@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
+import { DocumentsSwitch } from "../_components/documents-switch";
 import { ClientCell, StatusPill, StatusTabs, one, shortDate } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
   return (
     <main>
       <div className="pagehead">
-        <h1>Quotes</h1>
+        <DocumentsSwitch active="quotes" />
       </div>
       <StatusTabs basePath="/admin/quotes" tabs={TABS} active={active} />
       <table>

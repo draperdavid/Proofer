@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
+import { DocumentsSwitch } from "../_components/documents-switch";
 import { ClientCell, StatusPill, StatusTabs, one, shortDate } from "../_components/ui";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   return (
     <main>
       <div className="pagehead">
-        <h1>Contracts</h1>
+        <DocumentsSwitch active="contracts" />
         <Link href="/admin/contracts/templates" className="btn">
           View templates
         </Link>

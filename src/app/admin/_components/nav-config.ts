@@ -1,23 +1,26 @@
 // The admin navigation as plain data, so the "which item is active" rules can
-// be tested without rendering anything. Modeled on Pixieset: two apps, primary
-// links, then a "Tools" section of groups. Only links to pages that exist.
+// be tested without rendering anything. A bottom icon bar (Lark-style): three
+// items, Projects in the center, three more, the last being "More" which holds
+// everything else. Only links to pages that exist.
 
 export type IconName =
-  | "home"
-  | "folder"
   | "user"
   | "dollar"
-  | "calendar"
-  | "file"
-  | "copy"
   | "image"
-  | "bag"
-  | "chevron";
+  | "folder"
+  | "mail"
+  | "file"
+  | "more"
+  | "search";
 
-export type Leaf = { href: string; name: string; icon?: IconName; on?: (path: string) => boolean };
-export type Group = { name: string; icon: IconName; children: Leaf[] };
-
-const exact = (href: string) => (p: string) => p === href;
+export type BarItem = {
+  key: string;
+  name: string;
+  href: string;
+  icon: IconName;
+  on: (path: string) => boolean;
+  center?: boolean;
+};
 
 // Matches the prefix itself and anything under it, except the excluded sub-trees.
 export const under =
@@ -25,59 +28,58 @@ export const under =
   (p: string) =>
     (p === prefix || p.startsWith(prefix + "/")) && !except.some((e) => p === e || p.startsWith(e + "/"));
 
-export const TEMPLATE_PATHS = ["/admin/contracts/templates", "/admin/questionnaires/templates", "/admin/emails"];
+const CONTRACT_TEMPLATES = "/admin/contracts/templates";
+const QUESTIONNAIRE_TEMPLATES = "/admin/questionnaires/templates";
+const INBOX = "/admin/emails/log";
 
-export const studio = {
-  primary: [
-    { href: "/admin", name: "Home", icon: "home", on: exact("/admin") },
-    { href: "/admin/projects", name: "Projects", icon: "folder" },
-    { href: "/admin/contacts", name: "Contacts", icon: "user" },
-  ] as Leaf[],
-  tools: [
-    { name: "Payments", icon: "dollar", children: [{ href: "/admin/invoices", name: "Invoices" }] },
-    {
-      name: "Bookings",
-      icon: "calendar",
-      children: [
-        { href: "/admin/session-types", name: "Session types" },
-        { href: "/admin/availability", name: "Availability" },
-      ],
-    },
-    {
-      name: "Documents",
-      icon: "file",
-      children: [
-        { href: "/admin/contracts", name: "Contracts", on: under("/admin/contracts", ["/admin/contracts/templates"]) },
-        {
-          href: "/admin/questionnaires",
-          name: "Questionnaires",
-          on: under("/admin/questionnaires", ["/admin/questionnaires/templates"]),
-        },
-        { href: "/admin/quotes", name: "Quotes" },
-      ],
-    },
-  ] as Group[],
-  templates: {
-    href: "/admin/contracts/templates",
-    name: "Templates",
-    icon: "copy",
-    on: (p: string) => TEMPLATE_PATHS.some((t) => p === t || p.startsWith(t + "/")),
-  } as Leaf,
-};
+const documents = (p: string) =>
+  under("/admin/contracts", [CONTRACT_TEMPLATES])(p) ||
+  under("/admin/questionnaires", [QUESTIONNAIRE_TEMPLATES])(p) ||
+  under("/admin/quotes")(p);
 
-export const gallery = {
-  primary: [{ href: "/admin/galleries", name: "Collections", icon: "image" }] as Leaf[],
-  tools: [{ href: "/admin/store", name: "Store", icon: "bag" }] as Leaf[],
-};
+// Left to right. Index 3 is the center slot; "More" follows as the seventh.
+export const BAR: BarItem[] = [
+  { key: "contacts", name: "Contacts", href: "/admin/contacts", icon: "user", on: under("/admin/contacts") },
+  { key: "finance", name: "Finance", href: "/admin/invoices", icon: "dollar", on: under("/admin/invoices") },
+  { key: "galleries", name: "Galleries", href: "/admin/galleries", icon: "image", on: under("/admin/galleries") },
+  { key: "projects", name: "Projects", href: "/admin/projects", icon: "folder", on: under("/admin/projects"), center: true },
+  { key: "inbox", name: "Inbox", href: INBOX, icon: "mail", on: under(INBOX) },
+  { key: "documents", name: "Documents", href: "/admin/contracts", icon: "file", on: documents },
+];
 
-export const inGalleryApp = (p: string) =>
-  p === "/admin/galleries" || p.startsWith("/admin/galleries/") || p === "/admin/store" || p.startsWith("/admin/store/");
+export type MoreLink = { href: string; name: string; on: (path: string) => boolean };
+export type MoreGroup = { label: string; links: MoreLink[] };
 
-export function isOn(leaf: Leaf, path: string): boolean {
-  return leaf.on ? leaf.on(path) : path === leaf.href || path.startsWith(leaf.href + "/");
+// What the "More" sheet holds.
+export const MORE_GROUPS: MoreGroup[] = [
+  { label: "Overview", links: [{ href: "/admin", name: "Home", on: (p) => p === "/admin" }] },
+  {
+    label: "Bookings",
+    links: [
+      { href: "/admin/session-types", name: "Session types", on: under("/admin/session-types") },
+      { href: "/admin/availability", name: "Availability", on: under("/admin/availability") },
+    ],
+  },
+  {
+    label: "Templates",
+    links: [
+      { href: CONTRACT_TEMPLATES, name: "Contracts", on: under(CONTRACT_TEMPLATES) },
+      { href: QUESTIONNAIRE_TEMPLATES, name: "Questionnaires", on: under(QUESTIONNAIRE_TEMPLATES) },
+      { href: "/admin/emails", name: "Emails", on: under("/admin/emails", [INBOX]) },
+    ],
+  },
+  { label: "Shop", links: [{ href: "/admin/store", name: "Store", on: under("/admin/store") }] },
+];
+
+// Which bar slot is lit for a path: a bar item's key, "more", or null (Home).
+export function activeKey(path: string): string | null {
+  const bar = BAR.find((b) => b.on(path));
+  if (bar) return bar.key;
+  // Home lives in the More sheet but should not light "More" itself.
+  if (path === "/admin") return null;
+  return MORE_GROUPS.some((g) => g.links.some((l) => l.on(path))) ? "more" : null;
 }
 
-// Every leaf in the Studio Manager app, flattened (for tests and the active lookup).
-export function studioLeaves(): Leaf[] {
-  return [...studio.primary, ...studio.tools.flatMap((g) => g.children), studio.templates];
+export function allHrefs(): string[] {
+  return [...BAR.map((b) => b.href), ...MORE_GROUPS.flatMap((g) => g.links.map((l) => l.href))];
 }

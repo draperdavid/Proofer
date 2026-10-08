@@ -13,19 +13,6 @@ function one<T>(v: T | T[] | null | undefined): T | null {
 const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-const sections = [
-  { href: "/admin/contacts", name: "Contacts", note: "Leads and clients" },
-  { href: "/admin/projects", name: "Projects", note: "Kanban board and list" },
-  { href: "/admin/invoices", name: "Invoices", note: "Build and track" },
-  { href: "/admin/galleries", name: "Galleries", note: "Client photo delivery" },
-  { href: "/admin/session-types", name: "Session types", note: "What clients can book" },
-  { href: "/admin/availability", name: "Availability", note: "Hours and booking rules" },
-  { href: "/admin/contracts/templates", name: "Contract templates", note: "Smart-field contracts" },
-  { href: "/admin/questionnaires/templates", name: "Questionnaires", note: "Intake forms" },
-  { href: "/admin/store", name: "Store", note: "Products and prints" },
-  { href: "/admin/emails", name: "Emails", note: "Templates and send log" },
-];
-
 export default async function AdminHome() {
   const supabase = await supabaseServer();
   const {
@@ -136,16 +123,6 @@ export default async function AdminHome() {
             {(activity.data ?? []).length === 0 && <li className="muted">No favorites yet.</li>}
           </ul>
         </section>
-      </div>
-
-      <h2>Everything</h2>
-      <div className="cards">
-        {sections.map((s) => (
-          <Link key={s.href} href={s.href} className="card">
-            <div style={{ fontWeight: 650 }}>{s.name}</div>
-            <div className="d">{s.note}</div>
-          </Link>
-        ))}
       </div>
     </main>
   );
