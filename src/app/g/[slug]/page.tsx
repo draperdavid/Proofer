@@ -88,6 +88,9 @@ export default async function GalleryPage({
   if (favsRes.error) throw favsRes.error;
   const sets = setsRes.data ?? [];
   const assets = assetsRes.data ?? [];
+  const { data: coverRow } = await db.from("collections").select("cover_asset_id").eq("id", collection.id).maybeSingle();
+  const coverAsset = assets.find((a) => a.id === coverRow?.cover_asset_id) ?? assets[0];
+  const heroUrl = coverAsset && r2Configured() ? await presignGet(displayKey(coverAsset, LIGHTBOX_SIZE)) : null;
   const favoriteIds = new Set((favsRes.data ?? []).map((f) => f.asset_id));
 
   const showFavorites = setParam === FAVORITES_TAB && visitorEmail !== null;
@@ -120,9 +123,20 @@ export default async function GalleryPage({
   const toggle = toggleFavorite.bind(null, collection.slug);
 
   return (
-    <main className="wide">
-      <h1 className="gtitle">{collection.name}</h1>
-      {collection.event_date && <p className="gdate">{collection.event_date}</p>}
+    <>
+    {heroUrl && (
+      <header className="hero">
+        <img src={heroUrl} alt="" />
+        <div className="inner">
+          <h1>{collection.name}</h1>
+          {collection.event_date && <p className="date">{collection.event_date}</p>}
+          <a href="#photos" className="go">View gallery</a>
+        </div>
+      </header>
+    )}
+    <main className="wide" id="photos">
+      {!heroUrl && <h1 className="gtitle">{collection.name}</h1>}
+      {!heroUrl && collection.event_date && <p className="gdate">{collection.event_date}</p>}
 
       {visitorEmail ? (
         <form action={forgetEmail} className="hint">
@@ -169,5 +183,6 @@ export default async function GalleryPage({
         />
       )}
     </main>
+    </>
   );
 }

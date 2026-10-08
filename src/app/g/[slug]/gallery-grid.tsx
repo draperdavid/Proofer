@@ -65,16 +65,19 @@ export function GalleryGrid({
     [toggleFavorite, flip]
   );
 
-  function heart(photo: GridPhoto, color?: string) {
+  function heart(photo: GridPhoto, className = "icon") {
     if (!toggleFavorite) return null;
     const on = favorites.has(photo.id);
     return (
       <button
         type="button"
-        onClick={() => onHeart(photo.id)}
+        className={className}
+        onClick={(e) => {
+          e.stopPropagation();
+          onHeart(photo.id);
+        }}
         aria-pressed={on}
         aria-label={on ? `Remove ${photo.label} from favorites` : `Add ${photo.label} to favorites`}
-        style={{ background: "none", border: 0, cursor: "pointer", fontSize: "1.1rem", color: color ?? "inherit" }}
       >
         {on ? "♥" : "♡"}
       </button>
@@ -98,31 +101,33 @@ export function GalleryGrid({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close, step]);
 
-  if (photos.length === 0) return <p>{emptyText}</p>;
+  // Warm the cache for the photos either side of the open one so stepping feels instant.
+  useEffect(() => {
+    if (open === null || photos.length < 2) return;
+    for (const d of [1, -1]) {
+      const img = new Image();
+      img.src = photos[(open + d + photos.length) % photos.length].largeUrl;
+    }
+  }, [open, photos]);
+
+  const [touchX, setTouchX] = useState<number | null>(null);
+
+  if (photos.length === 0) return <p className="muted">{emptyText}</p>;
 
   const current = open === null ? null : photos[open];
 
   return (
     <>
-      {favError && <p role="alert">{favError}</p>}
+      {favError && <p role="alert" className="err">{favError}</p>}
       <ul className="ggrid">
         {photos.map((photo, i) => (
-          <li key={photo.id}>
-            <button
-              type="button"
-              onClick={() => setOpen(i)}
-              aria-label={`Open ${photo.label}`}
-              style={{ padding: 0, border: 0, background: "none", cursor: "zoom-in", display: "block", width: "100%" }}
-            >
-              <img
-                src={photo.gridUrl}
-                alt={photo.label}
-                loading="lazy"
-                              />
+          <li key={photo.id} className="gitem">
+            <button type="button" className="gopen" onClick={() => setOpen(i)} aria-label={`Open ${photo.label}`}>
+              <img src={photo.gridUrl} alt={photo.label} loading="lazy" />
             </button>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <a href={photo.downloadHref} className="hint">
-                Download
+            <div className="gover">
+              <a href={photo.downloadHref} className="icon" aria-label={`Download ${photo.label}`} title="Download">
+                ↓
               </a>
               {heart(photo)}
             </div>
@@ -135,43 +140,56 @@ export function GalleryGrid({
           role="dialog"
           aria-modal="true"
           aria-label={current.label}
+          className="lb"
           onClick={close}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0, 0, 0, 0.92)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "0.75rem",
-            zIndex: 1000,
-            color: "#fff",
+          onTouchStart={(e) => setTouchX(e.touches[0].clientX)}
+          onTouchEnd={(e) => {
+            if (touchX === null) return;
+            const dx = e.changedTouches[0].clientX - touchX;
+            if (Math.abs(dx) > 50) step(dx < 0 ? 1 : -1);
+            setTouchX(null);
           }}
         >
-          <img
-            src={current.largeUrl}
-            alt={current.label}
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "92vw", maxHeight: "82vh", objectFit: "contain" }}
-          />
-          <div style={{ display: "flex", gap: "1rem", alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
-            <button type="button" onClick={() => step(-1)} disabled={photos.length < 2} aria-label="Previous photo">
-              ←
-            </button>
+          <div className="lb-top" onClick={(e) => e.stopPropagation()}>
             <span>
               {open! + 1} / {photos.length}
             </span>
-            <button type="button" onClick={() => step(1)} disabled={photos.length < 2} aria-label="Next photo">
-              →
-            </button>
-            <a href={current.downloadHref} style={{ color: "#fff" }}>
-              Download
-            </a>
-            {heart(current, "#fff")}
-            <button type="button" onClick={close} aria-label="Close">
+            <button type="button" className="icon" onClick={close} aria-label="Close">
               ✕
             </button>
+          </div>
+          <img key={current.id} src={current.largeUrl} alt={current.label} onClick={(e) => e.stopPropagation()} />
+          {photos.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="lb-nav prev"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(-1);
+                }}
+                aria-label="Previous photo"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="lb-nav next"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(1);
+                }}
+                aria-label="Next photo"
+              >
+                ›
+              </button>
+            </>
+          )}
+          <div className="lb-bar" onClick={(e) => e.stopPropagation()}>
+            <a href={current.downloadHref} className="icon wide">
+              Download
+            </a>
+            {heart(current, "icon")}
           </div>
         </div>
       )}

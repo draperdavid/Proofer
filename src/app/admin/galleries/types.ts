@@ -12,6 +12,7 @@ export type Collection = {
   access_version: number;
   contact_id: string | null;
   project_id: string | null;
+  cover_asset_id?: string | null; // added in 0019; absent until that migration is run
   created_at: string;
   updated_at: string;
 };

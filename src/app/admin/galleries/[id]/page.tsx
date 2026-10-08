@@ -12,6 +12,7 @@ import {
   moveSet,
   renameSet,
   setCollectionStatus,
+  setCover,
   updateCollection,
   updateCollectionAccess,
   updateCollectionLink,
@@ -77,6 +78,8 @@ export default async function CollectionDetailPage({ params }: { params: Promise
     favoritesByVisitor.set(f.visitor_email, [...(favoritesByVisitor.get(f.visitor_email) ?? []), asset]);
   }
   const storageReady = r2Configured();
+  // The cover is the chosen photo, else the first uploaded one (same rule as the Galleries list and client page).
+  const coverId = collection.cover_asset_id ?? assets.find((a) => a.status === "uploaded")?.id ?? null;
 
   // Thumbnails are short-lived presigned GETs of the 640 variant, or of the
   // original until the variants job has made it. Signing is local crypto, no
@@ -239,6 +242,8 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                 const up = moveAsset.bind(null, asset.id, "up");
                 const down = moveAsset.bind(null, asset.id, "down");
                 const del = deleteAsset.bind(null, asset.id);
+                const makeCover = setCover.bind(null, collection.id, asset.id);
+                const isCover = asset.id === coverId;
                 const thumb = thumbs.get(asset.id);
 
                 return (
@@ -259,6 +264,15 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                       </div>
                     )}
                     <div className="acts">
+                      {isCover ? (
+                        <span className="pill">Cover</span>
+                      ) : (
+                        asset.status === "uploaded" && (
+                          <form action={makeCover}>
+                            <button type="submit">Set as cover</button>
+                          </form>
+                        )
+                      )}
                       <form action={up}>
                         <button type="submit" disabled={j === 0}>
                           ←

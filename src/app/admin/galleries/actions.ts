@@ -351,6 +351,26 @@ export async function deleteAsset(assetId: string) {
   revalidatePath(`/admin/galleries/${asset.collection_id}`);
 }
 
+// Pick the gallery's cover photo. The photo must be uploaded and belong to this
+// gallery, so a forged asset id can't point a cover at someone else's photo.
+export async function setCover(collectionId: string, assetId: string) {
+  const db = supabaseAdmin();
+  const { data: asset, error } = await db
+    .from("media_assets")
+    .select("id")
+    .eq("id", assetId)
+    .eq("collection_id", collectionId)
+    .eq("status", "uploaded")
+    .maybeSingle();
+  if (error) throw error;
+  if (!asset) throw new Error("That photo can't be the cover (it isn't an uploaded photo in this gallery)");
+
+  const { error: updateErr } = await db.from("collections").update({ cover_asset_id: assetId }).eq("id", collectionId);
+  if (updateErr) throw updateErr;
+
+  revalidateCollection(collectionId);
+}
+
 // --------------------------------------------------------------------- upload
 // Called from the uploader client component, one file at a time. These return
 // errors instead of throwing so the browser can show which file failed and
