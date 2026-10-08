@@ -10,6 +10,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { FetchHttpHandler } from "@smithy/fetch-http-handler";
 import { env } from "./env";
 
 export function r2Client() {
@@ -36,6 +37,9 @@ export function r2Client() {
     userAgentAppId: "proofer",
     authSchemePreference: [],
     disableClockSkewCorrection: false,
+    // The default Node handler uses node:https, which Workers don't implement
+    // ("[unenv] https.request is not implemented yet!"). Use fetch instead.
+    requestHandler: new FetchHttpHandler(),
     sigv4aSigningRegionSet: [],
   });
 }
