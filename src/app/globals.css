@@ -291,8 +291,8 @@ body > main.wide { margin: 0 auto; padding: 40px 20px 80px; }
 
 /* kanban board */
 .board { display: flex; gap: var(--sp-4); align-items: flex-start; overflow-x: auto; padding-bottom: var(--sp-3); }
-.col { flex: 0 0 250px; background: var(--s0); border: 1px solid var(--bd); border-radius: var(--r-lg); padding: var(--sp-3); min-height: 120px; }
-.colhead { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); display: flex; justify-content: space-between; align-items: center; }
+.col { flex: 0 0 250px; min-height: 120px; }
+.colhead { margin: 0 0 var(--sp-2); padding: 0 2px var(--sp-2); border-bottom: 1px solid var(--bd); font-size: var(--fs-sm); display: flex; justify-content: space-between; align-items: center; }
 .colhead .count { font-size: var(--fs-xs); color: var(--t2); background: var(--s2); border-radius: var(--r-pill); padding: 1px 9px; font-weight: 600; }
 .kcard { background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r-md); padding: 10px 12px; margin-top: var(--sp-2); cursor: grab; box-shadow: var(--card-sh); }
 .kcard:hover { border-color: var(--acc-line); }
