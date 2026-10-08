@@ -71,8 +71,8 @@ export async function createCollection(formData: FormData) {
     .single();
   if (error) rethrow(error, fields.slug);
 
-  // Pixieset's default: every collection starts with one "Highlights" set.
-  const { error: setErr } = await db.from("photo_sets").insert({ collection_id: data.id, name: "Highlights" });
+  // Every collection starts with one set, so photos always have somewhere to go.
+  const { error: setErr } = await db.from("photo_sets").insert({ collection_id: data.id, name: "All photos" });
   if (setErr) throw setErr;
 
   revalidatePath("/admin/galleries");

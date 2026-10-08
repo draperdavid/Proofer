@@ -4,7 +4,7 @@ import { formatDay, todayISO } from "@/lib/dates";
 import { supabaseAdmin } from "@/lib/supabase";
 import { KanbanBoard } from "./projects/kanban-board";
 import type { Project, ProjectStage } from "./projects/types";
-import { OverviewWidgets, StatStrip, loadOverview } from "./_components/overview";
+import { OverviewRail, loadOverview } from "./_components/overview";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +92,8 @@ export default async function AdminHome({
 
   return (
     <main>
+      <div className="homegrid">
+        <div className="homemain">
       <div className="pagehead">
         <h1>Projects</h1>
         <div className="row">
@@ -117,8 +119,6 @@ export default async function AdminHome({
           </Link>
         </div>
       </div>
-
-      <StatStrip overview={overview} />
 
       <form className="filters">
         <input type="hidden" name="view" value={viewParam} />
@@ -180,8 +180,9 @@ export default async function AdminHome({
       ) : (
         <KanbanBoard stages={stages} projects={projects} clients={clients} badges={badges} />
       )}
-
-      <OverviewWidgets overview={overview} />
+        </div>
+        <OverviewRail overview={overview} />
+      </div>
     </main>
   );
 }

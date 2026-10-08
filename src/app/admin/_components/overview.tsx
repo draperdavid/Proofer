@@ -41,87 +41,87 @@ export async function loadOverview() {
 
 export type Overview = Awaited<ReturnType<typeof loadOverview>>;
 
-export function StatStrip({ overview }: { overview: Overview }) {
+// The right-hand rail: the headline numbers as a quiet list, then short lists.
+// No boxes, one text size, so it reads as a margin note rather than a dashboard.
+export function OverviewRail({ overview }: { overview: Overview }) {
+  const { stats, upcoming, inquiries, unpaid, activity } = overview;
   return (
-    <div className="statstrip">
-      {overview.stats.map((s) => (
-        <Link key={s.k} href={s.href} className="stat">
-          <span className="k">{s.k}</span>
-          <span className="v">{s.v}</span>
-        </Link>
-      ))}
-    </div>
-  );
-}
+    <aside className="rail" aria-label="At a glance">
+      <section className="rail-sec">
+        <h2>Overview</h2>
+        <ul className="rail-stats">
+          {stats.map((s) => (
+            <li key={s.k}>
+              <Link href={s.href}>
+                <span>{s.k}</span>
+                <span className="v">{s.v}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-export function OverviewWidgets({ overview }: { overview: Overview }) {
-  const { upcoming, inquiries, unpaid, activity } = overview;
-  return (
-    <>
-      <h2>At a glance</h2>
-      <div className="widgets">
-        <section className="card">
-          <h3>Upcoming sessions</h3>
-          <ul className="wlist">
-            {upcoming.map((p) => (
-              <li key={p.id}>
-                <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
-                <span className="muted">
-                  {one(p.contacts as Named)?.name ?? ""} · {formatDay(p.event_date, false)}
-                </span>
-              </li>
-            ))}
-            {upcoming.length === 0 && <li className="muted">Nothing scheduled.</li>}
-          </ul>
-        </section>
+      <section className="rail-sec">
+        <h2>Upcoming sessions</h2>
+        <ul className="rail-list">
+          {upcoming.map((p) => (
+            <li key={p.id}>
+              <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
+              <span className="muted">
+                {one(p.contacts as Named)?.name ?? ""} · {formatDay(p.event_date, false)}
+              </span>
+            </li>
+          ))}
+          {upcoming.length === 0 && <li className="muted">Nothing scheduled.</li>}
+        </ul>
+      </section>
 
-        <section className="card">
-          <h3>Recent inquiries</h3>
-          <ul className="wlist">
-            {inquiries.map((c) => (
-              <li key={c.id}>
-                <Link href={`/admin/contacts/${c.id}`}>{c.name}</Link>
-                <span className="muted">
-                  {c.source ? `${c.source} · ` : ""}
-                  {stamp(c.created_at)}
-                </span>
-              </li>
-            ))}
-            {inquiries.length === 0 && <li className="muted">No leads yet.</li>}
-          </ul>
-        </section>
+      <section className="rail-sec">
+        <h2>Recent inquiries</h2>
+        <ul className="rail-list">
+          {inquiries.map((c) => (
+            <li key={c.id}>
+              <Link href={`/admin/contacts/${c.id}`}>{c.name}</Link>
+              <span className="muted">
+                {c.source ? `${c.source} · ` : ""}
+                {stamp(c.created_at)}
+              </span>
+            </li>
+          ))}
+          {inquiries.length === 0 && <li className="muted">No leads yet.</li>}
+        </ul>
+      </section>
 
-        <section className="card">
-          <h3>Awaiting payment</h3>
-          <ul className="wlist">
-            {unpaid.map((i) => (
-              <li key={i.id}>
-                <Link href={`/admin/invoices/${i.id}`}>{one(i.contacts as Named)?.name ?? "Invoice"}</Link>
-                <span className="muted">
-                  {money(i.total_cents)}
-                  {i.due_date ? ` · due ${formatDay(i.due_date, false)}` : ""}
-                </span>
-              </li>
-            ))}
-            {unpaid.length === 0 && <li className="muted">All paid up.</li>}
-          </ul>
-        </section>
+      <section className="rail-sec">
+        <h2>Awaiting payment</h2>
+        <ul className="rail-list">
+          {unpaid.map((i) => (
+            <li key={i.id}>
+              <Link href={`/admin/invoices/${i.id}`}>{one(i.contacts as Named)?.name ?? "Invoice"}</Link>
+              <span className="muted">
+                {money(i.total_cents)}
+                {i.due_date ? ` · due ${formatDay(i.due_date, false)}` : ""}
+              </span>
+            </li>
+          ))}
+          {unpaid.length === 0 && <li className="muted">All paid up.</li>}
+        </ul>
+      </section>
 
-        <section className="card">
-          <h3>Gallery activity</h3>
-          <ul className="wlist">
-            {activity.map((a, n) => (
-              <li key={n}>
-                <Link href={`/admin/galleries/${a.collection_id}`}>{one(a.collections as Named)?.name ?? "Gallery"}</Link>
-                <span className="muted">
-                  {a.visitor_email} favorited a photo · {stamp(a.created_at)}
-                </span>
-              </li>
-            ))}
-            {activity.length === 0 && <li className="muted">No favorites yet.</li>}
-          </ul>
-        </section>
-      </div>
-    </>
+      <section className="rail-sec">
+        <h2>Gallery activity</h2>
+        <ul className="rail-list">
+          {activity.map((x, n) => (
+            <li key={n}>
+              <Link href={`/admin/galleries/${x.collection_id}`}>{one(x.collections as Named)?.name ?? "Gallery"}</Link>
+              <span className="muted">
+                {x.visitor_email} favorited a photo · {stamp(x.created_at)}
+              </span>
+            </li>
+          ))}
+          {activity.length === 0 && <li className="muted">No favorites yet.</li>}
+        </ul>
+      </section>
+    </aside>
   );
 }
