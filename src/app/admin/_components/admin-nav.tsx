@@ -87,6 +87,7 @@ export function AdminShell({ email, signOut, children }: { email: string; signOu
             <div className="who" title={email}>
               {email}
             </div>
+            <Link href="/admin/settings">Settings</Link>
             {signOut}
           </div>
         </details>

@@ -8,6 +8,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { moveProject } from "./actions";
 import type { Project, ProjectStage } from "./types";
+import type { Badge } from "@/lib/project-badges";
+import { formatDay } from "@/lib/dates";
+import { Avatar } from "../_components/ui";
 
 function groupByStage(stages: ProjectStage[], projects: Project[]) {
   const columns = new Map<string, Project[]>();
@@ -19,7 +22,17 @@ function groupByStage(stages: ProjectStage[], projects: Project[]) {
   return columns;
 }
 
-export function KanbanBoard({ stages, projects }: { stages: ProjectStage[]; projects: Project[] }) {
+export function KanbanBoard({
+  stages,
+  projects,
+  clients,
+  badges,
+}: {
+  stages: ProjectStage[];
+  projects: Project[];
+  clients: Record<string, string>;
+  badges: Record<string, Badge[]>;
+}) {
   const router = useRouter();
   const [columns, setColumns] = useState(() => groupByStage(stages, projects));
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -88,7 +101,21 @@ export function KanbanBoard({ stages, projects }: { stages: ProjectStage[]; proj
                 className="kcard"
               >
                 <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
-                {p.event_date && <div className="hint">{p.event_date}</div>}
+                {clients[p.id] && (
+                  <div className="kclient">
+                    <Avatar name={clients[p.id]} />
+                    {clients[p.id]}
+                  </div>
+                )}
+                <div className="pills">
+                  {p.event_date && <span className="chip">{formatDay(p.event_date)}</span>}
+                  {p.type && <span className="chip">{p.type}</span>}
+                  {(badges[p.id] ?? []).map((bd) => (
+                    <span key={bd.label} className={`st ${bd.tone}`}>
+                      {bd.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
             {cards.length === 0 && <p className="hint">No cards.</p>}

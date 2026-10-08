@@ -1,43 +1,7 @@
-/* Proofer design system. Tokens are Lark's "Studio paper" (light default, dark
-   follows the device setting). Every color, radius and size below points at a
-   token; pages should not hard-code colors. */
+/* Proofer design system. Colors come from the active theme (src/lib/themes.ts),
+   inlined in the root layout as --bg, --t1, --acc and friends. Sizes, type and
+   spacing live here. Pages should not hard-code colors. */
 :root {
-  color-scheme: light dark;
-
-  /* surfaces: warm paper */
-  --bg: #f4f1ea;
-  --s0: #f9f7f2;
-  --s1: #fffdf9;
-  --s2: #ece7dc;
-  --s3: #e4ded1;
-
-  /* lines */
-  --bd: #e2dccf;
-  --bd-hi: #cfc7b7;
-
-  /* text: ink, body, hints */
-  --t1: #1b1914;
-  --t2: #5e594d;
-  --t3: #8b8475;
-
-  /* accent: deep forest green */
-  --acc: #2f5d3a;
-  --acc-ink: #fdfbf6;
-  --acc-soft: rgba(47, 93, 58, 0.08);
-  --acc-line: rgba(47, 93, 58, 0.28);
-
-  /* signals */
-  --gold: #a07418;
-  --clay: #b5452f;
-  --amber: #9a6a10;
-  --ok: #3f8a4f;
-  --blue: #3c6fb0;
-
-  /* overlays */
-  --scrim: rgba(40, 32, 18, 0.32);
-  --shadow: rgba(60, 45, 20, 0.14);
-  --card-sh: 0 1px 2px rgba(60, 45, 20, 0.05), 0 6px 20px rgba(60, 45, 20, 0.06);
-
   /* radii */
   --r-sm: 7px;
   --r-md: 10px;
@@ -62,33 +26,6 @@
 
   --top-h: 56px;
   --bar-h: 64px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1113;
-    --s0: #131619;
-    --s1: #181b1e;
-    --s2: #1f2327;
-    --s3: #262b30;
-    --bd: #2b3035;
-    --bd-hi: #3b4249;
-    --t1: #f1efea;
-    --t2: #aaa69d;
-    --t3: #7e7a71;
-    --acc: #7dbb84;
-    --acc-ink: #0c1a0e;
-    --acc-soft: rgba(125, 187, 132, 0.11);
-    --acc-line: rgba(125, 187, 132, 0.34);
-    --gold: #d9b363;
-    --clay: #ee8d78;
-    --amber: #e0b46a;
-    --ok: #8fcf8f;
-    --blue: #7fa8e0;
-    --scrim: rgba(4, 6, 8, 0.66);
-    --shadow: rgba(0, 0, 0, 0.5);
-    --card-sh: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
 }
 
 * { box-sizing: border-box; }
@@ -477,3 +414,26 @@ form.filters button { flex: none; }
 a.back { display: inline-block; color: var(--t2); font-size: var(--fs-sm); }
 a.back:hover { color: var(--t1); text-decoration: none; }
 p:has(> a.back) { margin: 0 0 var(--sp-4); }
+
+/* settings: theme picker */
+.themegrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-4); margin: var(--sp-3) 0 var(--sp-5); max-width: 760px; }
+.themecard { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: var(--sp-4); background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r-lg); }
+.themecard:hover { border-color: var(--bd-hi); background: var(--s1); }
+.themecard.on { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+.themecard .swatches { display: flex; gap: 4px; width: 100%; margin-bottom: var(--sp-2); }
+.themecard .swatches i { flex: 1; height: 26px; border-radius: 6px; border: 1px solid var(--bd); }
+.themecard .tname { font-weight: 650; color: var(--t1); }
+.themecard .tblurb { font-size: var(--fs-xs); color: var(--t2); }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: var(--r-sm); color: var(--t2); font-size: var(--fs-sm); }
+.seg button:hover { color: var(--t1); background: transparent; }
+.seg button.on { background: var(--s3); color: var(--t1); font-weight: 600; }
+.menu-pop a { display: block; padding: 8px 10px; border-radius: var(--r-sm); color: var(--t1); font-size: var(--fs-sm); }
+.menu-pop a:hover { background: var(--s2); text-decoration: none; }
+
+/* project pills: quiet chips for facts (date, type), colored status pills for state */
+.chip { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: var(--r-pill); font-size: 11.5px; color: var(--t2); background: var(--s2); border: 1px solid var(--bd); white-space: nowrap; }
+.pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+td .pills { margin-top: 0; }
+.kclient { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: var(--fs-xs); color: var(--t2); }
+.kclient .avatar { width: 20px; height: 20px; font-size: 9px; }
+.kcard .st { font-size: 10.5px; padding: 1px 8px; }

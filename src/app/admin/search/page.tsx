@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
-import { Avatar, shortDate } from "../_components/ui";
+import { Avatar } from "../_components/ui";
+import { formatDay } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 {projects.map((p) => (
                   <li key={p.id}>
                     <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
-                    <span className="muted">{p.event_date ? shortDate(p.event_date) : ""}</span>
+                    <span className="muted">{p.event_date ? formatDay(p.event_date) : ""}</span>
                   </li>
                 ))}
               </ul>
@@ -94,7 +95,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                 {galleries.map((g) => (
                   <li key={g.id}>
                     <Link href={`/admin/galleries/${g.id}`}>{g.name}</Link>
-                    <span className="muted">{g.event_date ? shortDate(g.event_date) : ""}</span>
+                    <span className="muted">{g.event_date ? formatDay(g.event_date) : ""}</span>
                   </li>
                 ))}
               </ul>

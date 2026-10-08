@@ -69,6 +69,7 @@ export const MORE_GROUPS: MoreGroup[] = [
     ],
   },
   { label: "Shop", links: [{ href: "/admin/store", name: "Store", on: under("/admin/store") }] },
+  { label: "Settings", links: [{ href: "/admin/settings", name: "Settings", on: under("/admin/settings") }] },
 ];
 
 // Which bar slot is lit for a path: a bar item's key, "more", or null (Home).

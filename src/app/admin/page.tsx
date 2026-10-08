@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { formatDay } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,7 @@ export default async function AdminHome() {
               <li key={p.id}>
                 <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
                 <span className="muted">
-                  {one(p.contacts as { name: string } | { name: string }[] | null)?.name ?? ""} · {shortDate(p.event_date)}
+                  {one(p.contacts as { name: string } | { name: string }[] | null)?.name ?? ""} · {formatDay(p.event_date, false)}
                 </span>
               </li>
             ))}
@@ -99,7 +100,7 @@ export default async function AdminHome() {
                 <Link href={`/admin/invoices/${i.id}`}>{one(i.contacts as { name: string } | { name: string }[] | null)?.name ?? "Invoice"}</Link>
                 <span className="muted">
                   {money(i.total_cents)}
-                  {i.due_date ? ` · due ${shortDate(i.due_date)}` : ""}
+                  {i.due_date ? ` · due ${formatDay(i.due_date, false)}` : ""}
                 </span>
               </li>
             ))}
