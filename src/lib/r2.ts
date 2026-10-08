@@ -3,7 +3,6 @@
 // PUTs straight from the browser, reads are short-lived presigned GETs.
 import {
   DeleteObjectsCommand,
-  GetObjectCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -12,6 +11,7 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { FetchHttpHandler } from "@smithy/fetch-http-handler";
 import { env } from "./env";
+import { presignGetUrl } from "./presign";
 
 export function r2Client() {
   const c = env.r2();
@@ -57,20 +57,22 @@ export async function presignPut(key: string, contentType: string, expiresInSeco
   return getSignedUrl(r2Client(), command, { expiresIn: expiresInSeconds });
 }
 
+// GET URLs use the lightweight signer in presign.ts, not the SDK: a gallery page
+// signs one per photo and the SDK's per-URL cost exceeds the Workers free-plan
+// CPU limit (Error 1102).
 export async function presignGet(key: string, expiresInSeconds = 900) {
-  const command = new GetObjectCommand({ Bucket: env.r2().bucket, Key: key });
-  return getSignedUrl(r2Client(), command, { expiresIn: expiresInSeconds });
+  return presignGetUrl({ ...env.r2(), key, expiresIn: expiresInSeconds });
 }
 
 // A GET that R2 serves as a file download (Content-Disposition is part of the
 // signature, so the client can't change it).
 export async function presignDownload(key: string, contentDisposition: string, expiresInSeconds: number) {
-  const command = new GetObjectCommand({
-    Bucket: env.r2().bucket,
-    Key: key,
-    ResponseContentDisposition: contentDisposition,
+  return presignGetUrl({
+    ...env.r2(),
+    key,
+    expiresIn: expiresInSeconds,
+    responseContentDisposition: contentDisposition,
   });
-  return getSignedUrl(r2Client(), command, { expiresIn: expiresInSeconds });
 }
 
 // Returns the stored object's size, or null if it doesn't exist.
