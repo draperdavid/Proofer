@@ -62,9 +62,6 @@ export default async function ProjectsPage({
   return (
     <main>
       <h1>Projects</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
 
       <p>
         <Link href={`/admin/projects?view=board${showArchived ? "&archived=1" : ""}`}>Board</Link>

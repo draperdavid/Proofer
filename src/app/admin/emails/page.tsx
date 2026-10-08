@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TemplatesTabs } from "../_components/templates-tabs";
 import { supabaseAdmin } from "@/lib/supabase";
 import { env } from "@/lib/env";
 import { TEMPLATES, TEMPLATE_KEYS } from "@/lib/email/templates";
@@ -20,7 +21,7 @@ export default async function EmailsPage() {
 
   return (
     <main>
-      <h1>Emails</h1>
+      <TemplatesTabs active="emails" />
       <p>
         <Link href="/admin">Back to admin</Link>
         {" | "}

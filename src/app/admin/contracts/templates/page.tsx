@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TemplatesTabs } from "../../_components/templates-tabs";
 import { supabaseAdmin } from "@/lib/supabase";
 import { createTemplate } from "../actions";
 import { SMART_FIELD_TOKENS } from "../smart-fields";
@@ -18,10 +19,7 @@ export default async function ContractTemplatesPage() {
 
   return (
     <main>
-      <h1>Contract templates</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
+      <TemplatesTabs active="contracts" />
 
       <ul>
         {templates.map((t) => (

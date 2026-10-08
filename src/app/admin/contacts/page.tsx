@@ -41,9 +41,6 @@ export default async function ContactsPage({
   return (
     <main>
       <h1>Contacts</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
 
       <form>
         <input type="text" name="q" placeholder="Search name, email, phone" defaultValue={q ?? ""} />

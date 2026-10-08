@@ -15,9 +15,6 @@ export default async function SessionTypesPage() {
     <main>
       <h1>Session types</h1>
       <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
-      <p>
         <Link href="/admin/session-types/new">+ New session type</Link>
       </p>
 

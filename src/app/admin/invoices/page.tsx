@@ -42,9 +42,6 @@ export default async function InvoicesPage({
   return (
     <main>
       <h1>Invoices</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
 
       <form>
         <select name="status" defaultValue={status ?? ""}>

@@ -31,6 +31,7 @@
   --clay: #b5452f;
   --amber: #9a6a10;
   --ok: #3f8a4f;
+  --blue: #3c6fb0;
 
   /* overlays */
   --scrim: rgba(40, 32, 18, 0.32);
@@ -82,6 +83,7 @@
     --clay: #ee8d78;
     --amber: #e0b46a;
     --ok: #8fcf8f;
+    --blue: #7fa8e0;
     --scrim: rgba(4, 6, 8, 0.66);
     --shadow: rgba(0, 0, 0, 0.5);
     --card-sh: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -369,3 +371,39 @@ body > main.wide { max-width: 1480px; }
 .wlist li:last-child { border-bottom: none; }
 .wlist li a { font-weight: 600; }
 .wlist li .muted { font-size: var(--fs-xs); }
+
+/* nav: icons, groups, app switcher */
+.navitem { display: flex; align-items: center; gap: 10px; }
+.ico { flex: none; opacity: 0.85; }
+.navitem.on .ico { opacity: 1; }
+.navlabel { margin-top: var(--sp-2); }
+.ngroup > summary { list-style: none; cursor: pointer; user-select: none; }
+.ngroup > summary::-webkit-details-marker { display: none; }
+.ngroup > summary .caret { margin-left: auto; display: grid; transition: transform 0.15s; }
+.ngroup[open] > summary .caret { transform: rotate(180deg); }
+.navitem.parent-on { color: var(--t1); font-weight: 600; }
+.subnav { padding: 2px 0 4px; }
+.navitem.sub { padding-left: 38px; }
+.switcher { position: relative; margin: 0 0 var(--sp-4); }
+.switch-btn { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px var(--sp-3); background: var(--s1); font-weight: 600; font-size: var(--fs-sm); }
+.switch-menu { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r-md); box-shadow: var(--card-sh); padding: 4px; }
+.switch-menu a { display: block; padding: 8px var(--sp-3); border-radius: var(--r-sm); color: var(--t2); font-size: var(--fs-sm); }
+.switch-menu a:hover { background: var(--s2); color: var(--t1); text-decoration: none; }
+.switch-menu a.on { color: var(--acc); font-weight: 600; }
+
+/* status tabs under a page title */
+.tabs { display: flex; gap: var(--sp-5); border-bottom: 1px solid var(--bd); margin: 0 0 var(--sp-4); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.tabs a { padding: 8px 0 10px; color: var(--t2); font-size: var(--fs-sm); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs a:hover { color: var(--t1); text-decoration: none; }
+.tabs a.on { color: var(--t1); font-weight: 600; border-bottom-color: var(--acc); }
+
+/* client avatar + status pills (Pixieset-style) */
+.avatar { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--acc-soft); color: var(--acc); font-size: 11px; font-weight: 700; flex: none; }
+.clientcell { display: inline-flex; align-items: center; gap: 8px; }
+.st { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--r-pill); font-size: 11.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); }
+.st::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+.st.green { --c: var(--ok); }
+.st.amber { --c: var(--amber); }
+.st.blue { --c: var(--blue); }
+.st.red { --c: var(--clay); }
+.st.grey { --c: var(--t2); }

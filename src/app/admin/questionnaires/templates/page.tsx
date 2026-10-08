@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TemplatesTabs } from "../../_components/templates-tabs";
 import { supabaseAdmin } from "@/lib/supabase";
 import { createTemplate } from "../actions";
 import { FieldEditor } from "../field-editor";
@@ -18,10 +19,7 @@ export default async function QuestionnaireTemplatesPage() {
 
   return (
     <main>
-      <h1>Questionnaire templates</h1>
-      <p>
-        <Link href="/admin">Back to admin</Link>
-      </p>
+      <TemplatesTabs active="questionnaires" />
 
       <ul>
         {templates.map((t) => (
