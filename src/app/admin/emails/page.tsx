@@ -56,13 +56,13 @@ export default async function EmailsPage() {
           ))}
         </tbody>
       </table>
-      <p style={{ fontSize: "0.8rem" }}>
+      <p className="hint">
         Sent automatically: invoices and quotes when you mark them sent, questionnaires when you send them, and any{" "}
         <Link href="/admin/projects/stages">stage emails</Link> you set up.
       </p>
 
       <h2>Blocked addresses</h2>
-      <p style={{ fontSize: "0.8rem" }}>
+      <p className="hint">
         {webhookOn
           ? "Addresses that hard-bounced or marked an email as spam. Nothing is sent to them until you clear them."
           : "Bounce tracking is off: RESEND_WEBHOOK_SECRET isn't set, so bounces and spam reports aren't recorded yet."}

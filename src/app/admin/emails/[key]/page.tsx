@@ -51,7 +51,7 @@ export default async function EmailTemplatePage({
           <label htmlFor="body">Body (plain text; a blank line starts a new paragraph, links become clickable)</label>
           <textarea id="body" name="body" rows={14} required defaultValue={template.body} style={{ width: "100%" }} />
         </div>
-        <p style={{ fontSize: "0.85rem" }}>
+        <p className="hint">
           Fields you can use: {def.fields.map((f) => <code key={f}>{`{{${f}}}`} </code>)}
           <br />A field with no value is left out, and a line that ends up empty disappears.
         </p>
@@ -69,7 +69,7 @@ export default async function EmailTemplatePage({
       </p>
       {/* renderEmail escapes every value and the template text; this is the exact HTML a client receives. */}
       <div
-        style={{ border: "1px solid #ccc", padding: "1rem", background: "#fff" }}
+        className="preview"
         dangerouslySetInnerHTML={{ __html: preview.html }}
       />
 
@@ -79,7 +79,7 @@ export default async function EmailTemplatePage({
           Send a test to my sign-in email
         </button>
       </form>
-      {!env.resendConfigured() && <p style={{ fontSize: "0.8rem" }}>Sending is off until Resend is configured.</p>}
+      {!env.resendConfigured() && <p className="hint">Sending is off until Resend is configured.</p>}
     </main>
   );
 }

@@ -12,5 +12,9 @@ export function SignOutButton() {
     router.refresh();
   }
 
-  return <button onClick={handleSignOut}>Sign out</button>;
+  return (
+    <button type="button" className="ghost" onClick={handleSignOut} style={{ padding: "4px 0" }}>
+      Sign out
+    </button>
+  );
 }

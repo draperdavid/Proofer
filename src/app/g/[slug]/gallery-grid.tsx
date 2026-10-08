@@ -105,15 +105,7 @@ export function GalleryGrid({
   return (
     <>
       {favError && <p role="alert">{favError}</p>}
-      <ul
-        style={{
-          listStyle: "none",
-          padding: 0,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(12rem, 1fr))",
-          gap: "0.5rem",
-        }}
-      >
+      <ul className="ggrid">
         {photos.map((photo, i) => (
           <li key={photo.id}>
             <button
@@ -126,11 +118,10 @@ export function GalleryGrid({
                 src={photo.gridUrl}
                 alt={photo.label}
                 loading="lazy"
-                style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }}
-              />
+                              />
             </button>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <a href={photo.downloadHref} style={{ fontSize: "0.8rem" }}>
+              <a href={photo.downloadHref} className="hint">
                 Download
               </a>
               {heart(photo)}

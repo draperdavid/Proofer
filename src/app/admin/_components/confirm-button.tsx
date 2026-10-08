@@ -6,6 +6,7 @@ export function ConfirmButton({ message, children }: { message: string; children
   return (
     <button
       type="submit"
+      className="danger"
       onClick={(e) => {
         if (!window.confirm(message)) e.preventDefault();
       }}

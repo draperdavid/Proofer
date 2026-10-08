@@ -52,7 +52,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       </form>
 
       <h2>Variants</h2>
-      <p style={{ fontSize: "0.8rem" }}>
+      <p className="hint">
         Sizes or options, e.g. 8x10 / 11x14. Leave a variant&apos;s price blank to use the product price. With no
         variants, the product sells as-is.
       </p>

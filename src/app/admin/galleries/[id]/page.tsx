@@ -149,7 +149,7 @@ export default async function CollectionDetailPage({ params }: { params: Promise
         </div>
         <button type="submit">Save client link</button>
       </form>
-      <p style={{ fontSize: "0.8rem" }}>
+      <p className="hint">
         {collection.project_id && <Link href={`/admin/projects/${collection.project_id}`}>Open project</Link>}
         {collection.project_id && collection.contact_id && " · "}
         {collection.contact_id && <Link href={`/admin/contacts/${collection.contact_id}`}>Open contact</Link>}
@@ -187,7 +187,7 @@ export default async function CollectionDetailPage({ params }: { params: Promise
           Clients can&apos;t unlock password galleries yet: GALLERY_ACCESS_SECRET isn&apos;t set on this environment.
         </p>
       )}
-      <p style={{ fontSize: "0.8rem" }}>Changing visibility or the password signs every visitor out.</p>
+      <p className="hint">Changing visibility or the password signs every visitor out.</p>
 
       <h2>Upload photos</h2>
       {storageReady ? (
@@ -212,8 +212,8 @@ export default async function CollectionDetailPage({ params }: { params: Promise
             <h3>
               {set.name} ({setAssets.length})
             </h3>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <form action={rename} style={{ display: "flex", gap: "0.5rem" }}>
+            <div className="row">
+              <form action={rename} className="row">
                 <input type="text" name="name" defaultValue={set.name} required />
                 <button type="submit">Rename</button>
               </form>
@@ -228,13 +228,13 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                 </button>
               </form>
               <form action={remove}>
-                <button type="submit" disabled={sets.length <= 1}>
+                <button type="submit" className="danger" disabled={sets.length <= 1}>
                   Delete set{setAssets.length > 0 ? " and its photos" : ""}
                 </button>
               </form>
             </div>
 
-            <ul style={{ listStyle: "none", padding: 0, display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+            <ul className="tiles">
               {setAssets.map((asset, j) => {
                 const up = moveAsset.bind(null, asset.id, "up");
                 const down = moveAsset.bind(null, asset.id, "down");
@@ -242,30 +242,23 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                 const thumb = thumbs.get(asset.id);
 
                 return (
-                  <li key={asset.id} style={{ width: "10rem" }}>
+                  <li key={asset.id} className="tile">
                     {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={asset.original_filename}
-                        loading="lazy"
-                        style={{ width: "10rem", height: "10rem", objectFit: "cover" }}
-                      />
+                      <img src={thumb} alt={asset.original_filename} loading="lazy" />
                     ) : (
-                      <div style={{ width: "10rem", height: "10rem", background: "#eee" }}>
-                        {asset.status === "pending" ? "Upload didn't finish" : "No preview"}
-                      </div>
+                      <div className="ph">{asset.status === "pending" ? "Upload didn't finish" : "No preview"}</div>
                     )}
-                    <div style={{ fontSize: "0.8rem", wordBreak: "break-all" }}>
+                    <div className="name">
                       {asset.original_filename} · {formatBytes(asset.size_bytes)}
                     </div>
                     {asset.status === "uploaded" && !asset.variants_ready && (
-                      <div style={{ fontSize: "0.8rem" }} title={asset.variant_error ?? undefined}>
+                      <div className="hint" title={asset.variant_error ?? undefined} style={{ marginBottom: 4 }}>
                         {asset.variant_attempts >= MAX_VARIANT_ATTEMPTS
                           ? "Sizes failed — see error on hover"
                           : "Sizes processing…"}
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: "0.25rem" }}>
+                    <div className="acts">
                       <form action={up}>
                         <button type="submit" disabled={j === 0}>
                           ←
@@ -277,7 +270,9 @@ export default async function CollectionDetailPage({ params }: { params: Promise
                         </button>
                       </form>
                       <form action={del}>
-                        <button type="submit">Delete</button>
+                        <button type="submit" className="danger">
+                          Delete
+                        </button>
                       </form>
                     </div>
                   </li>
@@ -290,7 +285,7 @@ export default async function CollectionDetailPage({ params }: { params: Promise
       })}
 
       <h3>Add a set</h3>
-      <form action={addSet} style={{ display: "flex", gap: "0.5rem" }}>
+      <form action={addSet} className="row">
         <input type="text" name="name" placeholder="Set name" required />
         <button type="submit">Add set</button>
       </form>
@@ -305,22 +300,13 @@ export default async function CollectionDetailPage({ params }: { params: Promise
               {contact ? <Link href={`/admin/contacts/${contact.id}`}>{contact.name}</Link> : email}
               {contact && ` (${email})`} · {picks.length} favorite{picks.length === 1 ? "" : "s"}
             </h3>
-            <ul style={{ listStyle: "none", padding: 0, display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <ul className="tiles">
               {picks.map((asset) => {
                 const thumb = thumbs.get(asset.id);
                 return (
-                  <li key={asset.id} style={{ width: "6rem", fontSize: "0.7rem", wordBreak: "break-all" }}>
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={asset.original_filename}
-                        loading="lazy"
-                        style={{ width: "6rem", height: "6rem", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <div style={{ width: "6rem", height: "6rem", background: "#eee" }} />
-                    )}
-                    {asset.original_filename}
+                  <li key={asset.id} className="tile">
+                    {thumb ? <img src={thumb} alt={asset.original_filename} loading="lazy" /> : <div className="ph" />}
+                    <div className="name">{asset.original_filename}</div>
                   </li>
                 );
               })}
@@ -330,14 +316,13 @@ export default async function CollectionDetailPage({ params }: { params: Promise
               <textarea
                 readOnly
                 rows={3}
-                style={{ width: "100%" }}
                 defaultValue={picks.map((a) => a.original_filename).join(", ")}
               />
             </details>
           </section>
         );
       })}
-      <p style={{ fontSize: "0.8rem" }}>
+      <p className="hint">
         Clients name themselves by email when they favorite; the email isn&apos;t verified.
       </p>
 

@@ -53,21 +53,21 @@ export function KanbanBoard({ stages, projects }: { stages: ProjectStage[]; proj
   }
 
   return (
-    <div style={{ display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+    <div className="board">
       {stages.map((stage) => {
         const cards = columns.get(stage.id) ?? [];
         return (
           <div
             key={stage.id}
-            style={{ minWidth: "220px", border: "1px solid #ccc", padding: "0.5rem" }}
+            className="col"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
               handleDrop(stage.id, cards.length);
             }}
           >
-            <h3>
-              {stage.name} ({cards.length})
+            <h3 className="colhead">
+              {stage.name} <span className="count">{cards.length}</span>
             </h3>
             {cards.map((p, i) => (
               <div
@@ -85,19 +85,13 @@ export function KanbanBoard({ stages, projects }: { stages: ProjectStage[]; proj
                   const before = e.clientY - rect.top < rect.height / 2;
                   handleDrop(stage.id, before ? i : i + 1);
                 }}
-                style={{
-                  border: "1px solid #999",
-                  padding: "0.5rem",
-                  marginTop: "0.5rem",
-                  background: "white",
-                  cursor: "grab",
-                }}
+                className="kcard"
               >
                 <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
-                {p.event_date && <div>{p.event_date}</div>}
+                {p.event_date && <div className="hint">{p.event_date}</div>}
               </div>
             ))}
-            {cards.length === 0 && <p>No cards.</p>}
+            {cards.length === 0 && <p className="hint">No cards.</p>}
           </div>
         );
       })}

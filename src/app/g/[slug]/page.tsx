@@ -120,16 +120,16 @@ export default async function GalleryPage({
   const toggle = toggleFavorite.bind(null, collection.slug);
 
   return (
-    <main>
-      <h1>{collection.name}</h1>
-      {collection.event_date && <p>{collection.event_date}</p>}
+    <main className="wide">
+      <h1 className="gtitle">{collection.name}</h1>
+      {collection.event_date && <p className="gdate">{collection.event_date}</p>}
 
       {visitorEmail ? (
-        <form action={forgetEmail} style={{ fontSize: "0.85rem" }}>
+        <form action={forgetEmail} className="hint">
           Saving favorites as <strong>{visitorEmail}</strong> <button type="submit">Not you?</button>
         </form>
       ) : (
-        <form action={saveEmail} style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+        <form action={saveEmail} className="row">
           <label htmlFor="fav-email">Enter your email to save favorites</label>
           <input id="fav-email" name="email" type="email" autoComplete="email" required />
           <button type="submit">Start favoriting</button>
@@ -138,7 +138,7 @@ export default async function GalleryPage({
       {fav && FAV_ERRORS[fav] && <p role="alert">{FAV_ERRORS[fav]}</p>}
 
       {(sets.length > 1 || visitorEmail) && (
-        <nav aria-label="Sets" style={{ display: "flex", gap: "1rem", flexWrap: "wrap", margin: "1rem 0" }}>
+        <nav aria-label="Sets" className="settabs">
           {sets.map((set) =>
             set.id === activeTab ? (
               <strong key={set.id} aria-current="page">
