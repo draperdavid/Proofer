@@ -1,0 +1,11 @@
+title = "Proofer gitleaks config"
+
+[extend]
+useDefault = true
+
+# presign.test.ts holds test vectors copied from the AWS SDK, signed with the
+# dummy credentials AKIDEXAMPLE / SECRETEXAMPLE. They are not real secrets, but
+# the generic-api-key rule matches them. Only this one file is exempt.
+[allowlist]
+description = "dummy-credential test vectors for the R2 presigner"
+paths = ['''src/lib/presign\.test\.ts''']
