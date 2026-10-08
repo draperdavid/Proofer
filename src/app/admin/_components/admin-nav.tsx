@@ -80,7 +80,7 @@ export function AdminShell({ email, signOut, children }: { email: string; signOu
         </form>
 
         <details className="menu acct">
-          <summary className="avatar big" aria-label="Account">
+          <summary className="acct-btn" aria-label="Account">
             {initial}
           </summary>
           <div className="menu-pop">

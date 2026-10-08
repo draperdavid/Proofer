@@ -1,130 +1,187 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { projectBadges, type Badge } from "@/lib/project-badges";
+import { formatDay, todayISO } from "@/lib/dates";
 import { supabaseAdmin } from "@/lib/supabase";
-import { formatDay } from "@/lib/dates";
+import { KanbanBoard } from "./projects/kanban-board";
+import type { Project, ProjectStage } from "./projects/types";
+import { OverviewWidgets, StatStrip, loadOverview } from "./_components/overview";
 
 export const dynamic = "force-dynamic";
 
-// A many-to-one embed comes back as an object (or occasionally a one-item array).
-function one<T>(v: T | T[] | null | undefined): T | null {
-  return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+type SearchParams = { view?: string; archived?: string; q?: string; type?: string };
+
+// PostgREST's .or() filter syntax treats "," and "()" as structural, so strip
+// them from user input rather than letting a search term reshape the filter.
+function sanitizeSearchTerm(term: string): string {
+  return term.replace(/[,()]/g, "").trim();
 }
 
-const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-export default async function AdminHome() {
-  const supabase = await supabaseServer();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/admin/login");
+export default async function AdminHome({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const { view, archived, q, type } = await searchParams;
+  const showArchived = archived === "1";
+  const isListView = view === "list";
 
   const db = supabaseAdmin();
-  const [leads, projects, sent, galleries] = await Promise.all([
-    db.from("contacts").select("id", { count: "exact", head: true }).eq("kind", "lead"),
-    db.from("projects").select("id", { count: "exact", head: true }).eq("archived", false),
-    db.from("invoices").select("id", { count: "exact", head: true }).eq("status", "sent"),
-    db.from("collections").select("id", { count: "exact", head: true }).eq("status", "published"),
-  ]);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const [upcoming, inquiries, unpaid, activity] = await Promise.all([
-    db.from("projects").select("id, title, event_date, contacts(name)").eq("archived", false).gte("event_date", today).order("event_date").limit(5),
-    db.from("contacts").select("id, name, source, created_at").eq("kind", "lead").order("created_at", { ascending: false }).limit(5),
-    db.from("invoices").select("id, total_cents, due_date, contacts(name)").eq("status", "sent").order("due_date", { nullsFirst: false }).limit(5),
-    db.from("favorites").select("visitor_email, created_at, collection_id, collections(name)").order("created_at", { ascending: false }).limit(5),
-  ]);
+  let query = db
+    .from("projects")
+    .select("*")
+    .eq("archived", showArchived)
+    .order("position", { ascending: true });
 
-  const stats = [
-    { k: "Leads", v: leads.count ?? 0, href: "/admin/contacts" },
-    { k: "Active projects", v: projects.count ?? 0, href: "/admin/projects" },
-    { k: "Invoices awaiting payment", v: sent.count ?? 0, href: "/admin/invoices" },
-    { k: "Published galleries", v: galleries.count ?? 0, href: "/admin/galleries" },
-  ];
+  const term = q ? sanitizeSearchTerm(q) : "";
+  if (term) {
+    query = query.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
+  }
+  if (type) {
+    query = query.eq("type", type);
+  }
+
+  const [
+    { data: projectsData, error: projectsError },
+    { data: stagesData, error: stagesError },
+    { data: contactsData, error: contactsError },
+    overview,
+  ] = await Promise.all([
+    query,
+    db.from("project_stages").select("*").order("position", { ascending: true }),
+    db.from("contacts").select("id, name"),
+    loadOverview(),
+  ]);
+  if (projectsError) throw projectsError;
+  if (stagesError) throw stagesError;
+  if (contactsError) throw contactsError;
+
+  const projects = (projectsData ?? []) as Project[];
+  const stages = (stagesData ?? []) as ProjectStage[];
+  const contactNames = new Map((contactsData ?? []).map((c) => [c.id as string, c.name as string]));
+  const hasFilters = Boolean(q || type);
+
+  // Status pills come from each project's real invoices, contracts and questionnaires.
+  // If any of these lookups fails the board still renders, just without those pills.
+  const projectIds = projects.map((pr) => pr.id);
+  const [invRes, conRes, quesRes] =
+    projectIds.length > 0
+      ? await Promise.all([
+          db.from("invoices").select("project_id, status, due_date").in("project_id", projectIds),
+          db.from("contracts").select("project_id, status").in("project_id", projectIds),
+          db.from("questionnaires").select("project_id, submitted_at").in("project_id", projectIds),
+        ])
+      : [{ data: [] }, { data: [] }, { data: [] }];
+  const today = todayISO();
+  const badges: Record<string, Badge[]> = {};
+  for (const id of projectIds) {
+    badges[id] = projectBadges(
+      {
+        invoices: ((invRes.data ?? []) as { project_id: string; status: string; due_date: string | null }[]).filter((r) => r.project_id === id),
+        contracts: ((conRes.data ?? []) as { project_id: string; status: string }[]).filter((r) => r.project_id === id),
+        questionnaires: ((quesRes.data ?? []) as { project_id: string; submitted_at: string | null }[]).filter((r) => r.project_id === id),
+      },
+      today
+    );
+  }
+  const clients: Record<string, string> = {};
+  for (const pr of projects) if (pr.contact_id && contactNames.get(pr.contact_id)) clients[pr.id] = contactNames.get(pr.contact_id)!;
+
+  const viewParam = isListView ? "list" : "board";
+  const baseQuery = `view=${viewParam}${showArchived ? "&archived=1" : ""}`;
 
   return (
     <main>
       <div className="pagehead">
-        <h1>Home</h1>
-      </div>
-
-      <div className="cards">
-        {stats.map((s) => (
-          <Link key={s.k} href={s.href} className="card">
-            <div className="k">{s.k}</div>
-            <div className="v">{s.v}</div>
+        <h1>Projects</h1>
+        <div className="row">
+          <nav className="seg" aria-label="View">
+            <Link href={`/admin?view=board${showArchived ? "&archived=1" : ""}`} className={isListView ? undefined : "on"}>
+              Board
+            </Link>
+            <Link href={`/admin?view=list${showArchived ? "&archived=1" : ""}`} className={isListView ? "on" : undefined}>
+              List
+            </Link>
+          </nav>
+          {showArchived ? (
+            <Link href={`/admin?view=${viewParam}`} className="btn">
+              Active
+            </Link>
+          ) : (
+            <Link href={`/admin?view=${viewParam}&archived=1`} className="btn">
+              Archived
+            </Link>
+          )}
+          <Link href="/admin/projects/stages" className="btn">
+            Manage stages
           </Link>
-        ))}
+        </div>
       </div>
 
-      <div className="widgets">
-        <section className="card">
-          <h3>Upcoming sessions</h3>
-          <ul className="wlist">
-            {(upcoming.data ?? []).map((p) => (
-              <li key={p.id}>
-                <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
-                <span className="muted">
-                  {one(p.contacts as { name: string } | { name: string }[] | null)?.name ?? ""} · {formatDay(p.event_date, false)}
-                </span>
-              </li>
-            ))}
-            {(upcoming.data ?? []).length === 0 && <li className="muted">Nothing scheduled.</li>}
-          </ul>
-        </section>
+      <StatStrip overview={overview} />
 
-        <section className="card">
-          <h3>Recent inquiries</h3>
-          <ul className="wlist">
-            {(inquiries.data ?? []).map((c) => (
-              <li key={c.id}>
-                <Link href={`/admin/contacts/${c.id}`}>{c.name}</Link>
-                <span className="muted">
-                  {c.source ? `${c.source} · ` : ""}
-                  {shortDate(c.created_at)}
-                </span>
-              </li>
-            ))}
-            {(inquiries.data ?? []).length === 0 && <li className="muted">No leads yet.</li>}
-          </ul>
-        </section>
+      <form className="filters">
+        <input type="hidden" name="view" value={viewParam} />
+        {showArchived && <input type="hidden" name="archived" value="1" />}
+        <input type="text" name="q" placeholder="Search title or location" defaultValue={q ?? ""} />
+        <input type="text" name="type" placeholder="Filter by type" defaultValue={type ?? ""} />
+        <button type="submit">Filter</button>
+        {hasFilters && <Link href={`/admin?${baseQuery}`}>Clear</Link>}
+      </form>
 
-        <section className="card">
-          <h3>Awaiting payment</h3>
-          <ul className="wlist">
-            {(unpaid.data ?? []).map((i) => (
-              <li key={i.id}>
-                <Link href={`/admin/invoices/${i.id}`}>{one(i.contacts as { name: string } | { name: string }[] | null)?.name ?? "Invoice"}</Link>
-                <span className="muted">
-                  {money(i.total_cents)}
-                  {i.due_date ? ` · due ${formatDay(i.due_date, false)}` : ""}
-                </span>
-              </li>
+      {isListView ? (
+        <table>
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>Client</th>
+              <th>Stage</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map((pr) => (
+              <tr key={pr.id}>
+                <td>
+                  <Link href={`/admin/projects/${pr.id}`}>{pr.title}</Link>
+                  {pr.type && <span className="chip" style={{ marginLeft: 8 }}>{pr.type}</span>}
+                </td>
+                <td>
+                  {clients[pr.id] ? (
+                    <span className="clientcell">{clients[pr.id]}</span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td>
+                  <span className="st grey">{stages.find((s) => s.id === pr.stage_id)?.name ?? "No stage"}</span>
+                </td>
+                <td>{pr.event_date ? <span className="chip">{formatDay(pr.event_date)}</span> : <span className="muted">TBD</span>}</td>
+                <td>
+                  <span className="pills">
+                    {badges[pr.id].map((bd) => (
+                      <span key={bd.label} className={`st ${bd.tone}`}>
+                        {bd.label}
+                      </span>
+                    ))}
+                    {badges[pr.id].length === 0 && <span className="muted">—</span>}
+                  </span>
+                </td>
+              </tr>
             ))}
-            {(unpaid.data ?? []).length === 0 && <li className="muted">All paid up.</li>}
-          </ul>
-        </section>
+            {projects.length === 0 && (
+              <tr>
+                <td colSpan={5}>No projects found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      ) : (
+        <KanbanBoard stages={stages} projects={projects} clients={clients} badges={badges} />
+      )}
 
-        <section className="card">
-          <h3>Gallery activity</h3>
-          <ul className="wlist">
-            {(activity.data ?? []).map((a, n) => (
-              <li key={n}>
-                <Link href={`/admin/galleries/${a.collection_id}`}>
-                  {one(a.collections as { name: string } | { name: string }[] | null)?.name ?? "Gallery"}
-                </Link>
-                <span className="muted">
-                  {a.visitor_email} favorited a photo · {shortDate(a.created_at)}
-                </span>
-              </li>
-            ))}
-            {(activity.data ?? []).length === 0 && <li className="muted">No favorites yet.</li>}
-          </ul>
-        </section>
-      </div>
+      <OverviewWidgets overview={overview} />
     </main>
   );
 }

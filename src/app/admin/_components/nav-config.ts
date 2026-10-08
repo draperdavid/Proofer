@@ -42,7 +42,7 @@ export const BAR: BarItem[] = [
   { key: "contacts", name: "Contacts", href: "/admin/contacts", icon: "user", on: under("/admin/contacts") },
   { key: "finance", name: "Finance", href: "/admin/invoices", icon: "dollar", on: under("/admin/invoices") },
   { key: "galleries", name: "Galleries", href: "/admin/galleries", icon: "image", on: under("/admin/galleries") },
-  { key: "projects", name: "Projects", href: "/admin/projects", icon: "camera", on: under("/admin/projects"), center: true },
+  { key: "projects", name: "Projects", href: "/admin", icon: "camera", on: (p) => p === "/admin" || under("/admin/projects")(p), center: true },
   { key: "inbox", name: "Inbox", href: INBOX, icon: "mail", on: under(INBOX) },
   { key: "documents", name: "Documents", href: "/admin/contracts", icon: "file", on: documents },
 ];
@@ -52,7 +52,6 @@ export type MoreGroup = { label: string; links: MoreLink[] };
 
 // What the "More" sheet holds.
 export const MORE_GROUPS: MoreGroup[] = [
-  { label: "Overview", links: [{ href: "/admin", name: "Home", on: (p) => p === "/admin" }] },
   {
     label: "Bookings",
     links: [
@@ -76,8 +75,6 @@ export const MORE_GROUPS: MoreGroup[] = [
 export function activeKey(path: string): string | null {
   const bar = BAR.find((b) => b.on(path));
   if (bar) return bar.key;
-  // Home lives in the More sheet but should not light "More" itself.
-  if (path === "/admin") return null;
   return MORE_GROUPS.some((g) => g.links.some((l) => l.on(path))) ? "more" : null;
 }
 

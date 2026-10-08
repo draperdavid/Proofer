@@ -30,7 +30,7 @@ export default async function StagesPage() {
     <main>
       <h1>Manage stages</h1>
       <p>
-        <Link className="back" href="/admin/projects">← Back to projects</Link>
+        <Link className="back" href="/admin">← Back to projects</Link>
       </p>
 
       <table>

@@ -48,7 +48,7 @@ export default async function QuoteDetailPage({
         {quote.projects ? (
           <Link className="back" href={`/admin/projects/${quote.projects.id}`}>← Back to {quote.projects.title}</Link>
         ) : (
-          <Link className="back" href="/admin/projects">← Back to projects</Link>
+          <Link className="back" href="/admin">← Back to projects</Link>
         )}
       </p>
       <p>

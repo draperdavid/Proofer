@@ -49,8 +49,9 @@ test("bookings and the store live under More", () => {
   assert.equal(activeKey("/admin/settings"), "more");
 });
 
-test("Home lights nothing, and unknown paths light nothing", () => {
-  assert.equal(activeKey("/admin"), null);
+test("the main page is Projects, and unknown paths light nothing", () => {
+  assert.equal(activeKey("/admin"), "projects");
+  assert.equal(activeKey("/admin/projects"), "projects");
   assert.equal(activeKey("/admin/nope"), null);
   assert.equal(activeKey("/admin/contractsfoo"), null);
   assert.equal(activeKey("/admin/projectsarchive"), null);

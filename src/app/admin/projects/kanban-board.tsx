@@ -10,7 +10,6 @@ import { moveProject } from "./actions";
 import type { Project, ProjectStage } from "./types";
 import type { Badge } from "@/lib/project-badges";
 import { formatDay } from "@/lib/dates";
-import { Avatar } from "../_components/ui";
 
 function groupByStage(stages: ProjectStage[], projects: Project[]) {
   const columns = new Map<string, Project[]>();
@@ -36,6 +35,8 @@ export function KanbanBoard({
   const router = useRouter();
   const [columns, setColumns] = useState(() => groupByStage(stages, projects));
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  // The column the card is currently hovering over, so it can light up as a drop zone.
+  const [overStage, setOverStage] = useState<string | null>(null);
 
   useEffect(() => {
     setColumns(groupByStage(stages, projects));
@@ -45,6 +46,7 @@ export function KanbanBoard({
     if (!draggingId) return;
     const id = draggingId;
     setDraggingId(null);
+    setOverStage(null);
 
     setColumns((prev) => {
       const next = new Map(prev);
@@ -72,8 +74,20 @@ export function KanbanBoard({
         return (
           <div
             key={stage.id}
-            className="col"
-            onDragOver={(e) => e.preventDefault()}
+            className={`col${overStage === stage.id ? " over" : ""}`}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              if (draggingId) setOverStage(stage.id);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (draggingId && overStage !== stage.id) setOverStage(stage.id);
+            }}
+            onDragLeave={(e) => {
+              // Only clear when the pointer leaves the column itself, not when it crosses a card inside it.
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOverStage(null);
+            }}
             onDrop={(e) => {
               e.preventDefault();
               handleDrop(stage.id, cards.length);
@@ -86,10 +100,21 @@ export function KanbanBoard({
               <div
                 key={p.id}
                 draggable
-                onDragStart={() => setDraggingId(p.id)}
+                onDragStart={(e) => {
+                  // Firefox will not start a drag without data; "move" shows the right cursor.
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", p.id);
+                  setDraggingId(p.id);
+                }}
+                onDragEnd={() => {
+                  setDraggingId(null);
+                  setOverStage(null);
+                }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  e.dataTransfer.dropEffect = "move";
+                  if (draggingId && overStage !== stage.id) setOverStage(stage.id);
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -98,14 +123,13 @@ export function KanbanBoard({
                   const before = e.clientY - rect.top < rect.height / 2;
                   handleDrop(stage.id, before ? i : i + 1);
                 }}
-                className="kcard"
+                className={`kcard${draggingId === p.id ? " dragging" : ""}`}
               >
-                <Link href={`/admin/projects/${p.id}`}>{p.title}</Link>
+                <Link href={`/admin/projects/${p.id}`} draggable={false}>
+                  {p.title}
+                </Link>
                 {clients[p.id] && (
-                  <div className="kclient">
-                    <Avatar name={clients[p.id]} />
-                    {clients[p.id]}
-                  </div>
+                  <div className="kclient">{clients[p.id]}</div>
                 )}
                 <div className="pills">
                   {p.event_date && <span className="chip">{formatDay(p.event_date)}</span>}

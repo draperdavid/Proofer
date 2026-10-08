@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
-import { Avatar } from "../_components/ui";
 import { formatDay } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +66,6 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
               <ul className="results">
                 {contacts.map((c) => (
                   <li key={c.id}>
-                    <Avatar name={c.name} />
                     <Link href={`/admin/contacts/${c.id}`}>{c.name}</Link>
                     <span className="muted">{c.email ?? ""}</span>
                   </li>

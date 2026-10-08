@@ -1,5 +1,5 @@
-// Small shared pieces used across admin list pages (Pixieset-style: a client is
-// an initials avatar + name, a status is a colored pill).
+// Small shared pieces used across admin list pages: a client is shown by name,
+// a status is a colored pill.
 import Link from "next/link";
 
 // A many-to-one Supabase embed comes back as an object (or occasionally a one-item array).
@@ -7,24 +7,9 @@ export function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
 }
 
-export function Avatar({ name }: { name: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
-  return <span className="avatar">{initials || "?"}</span>;
-}
-
 export function ClientCell({ name }: { name: string | null | undefined }) {
   if (!name) return <span className="muted">—</span>;
-  return (
-    <span className="clientcell">
-      <Avatar name={name} />
-      {name}
-    </span>
-  );
+  return <span className="clientcell">{name}</span>;
 }
 
 type Tone = "green" | "amber" | "blue" | "red" | "grey";
