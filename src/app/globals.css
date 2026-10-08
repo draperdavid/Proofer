@@ -468,5 +468,11 @@ td .pills { margin-top: 0; }
 .fluid-l > .pagehead { padding-left: var(--sp-6); }
 .fluid-l .inbox-folders { padding-left: var(--sp-3); }
 .fluid-l .inbox-main { padding-right: var(--sp-6); }
-@media (max-width: 1100px) { .content:has(> main.fluid-r) { padding-right: var(--sp-3); } .fluid-r .rail { padding-right: 0; } }
+@media (max-width: 1100px) { .content:has(> main.fluid-r) { padding-right: var(--sp-3); } .fluid-r .rail { padding-right: 0; } .homehead { padding-right: 0; } }
 @media (max-width: 800px) { .content:has(> main.fluid-l) { padding-left: var(--sp-3); } .fluid-l > .pagehead, .fluid-l .inbox-folders { padding-left: 0; } .fluid-l .inbox-main { padding-right: 0; } }
+
+/* the title and filters sit above both columns, so the rail starts level with the column titles of the board */
+.homehead { padding-right: var(--sp-6); }
+/* optical alignment: the rail's first heading shares a line with the board's column titles */
+.fluid-r .rail { padding-top: 3px; }
+@media (max-width: 1100px) { .fluid-r .rail { padding-top: var(--sp-5); } }

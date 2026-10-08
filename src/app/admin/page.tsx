@@ -92,8 +92,7 @@ export default async function AdminHome({
 
   return (
     <main className="fluid fluid-r">
-      <div className="homegrid">
-        <div className="homemain">
+      <div className="homehead">
       <div className="pagehead">
         <h1>Projects</h1>
         <div className="row">
@@ -128,6 +127,9 @@ export default async function AdminHome({
         <button type="submit">Filter</button>
         {hasFilters && <Link href={`/admin?${baseQuery}`}>Clear</Link>}
       </form>
+      </div>
+      <div className="homegrid">
+        <div className="homemain">
 
       {isListView ? (
         <table>
