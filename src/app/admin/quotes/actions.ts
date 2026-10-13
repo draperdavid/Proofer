@@ -1,7 +1,7 @@
 "use server";
 
-// Quote CRUD. Runs behind the /admin/:path* middleware auth gate, so these
-// actions trust the caller and use the service-role client directly.
+// Quote CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 //
 // Status can only move between draft/sent from this file — "accepted" is
 // reserved for the client's accept action on the public /quote/[id] route,
@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { onQuoteSent } from "@/lib/email/triggers";
 import { dollarsToCents } from "../invoices/money";
 import type { QuotePackageLineItem, QuoteStatus } from "./types";
@@ -109,6 +110,7 @@ async function assertNotAccepted(db: ReturnType<typeof supabaseAdmin>, id: strin
 }
 
 export async function createQuote(formData: FormData) {
+  await requireAdmin();
   const { packages, ...fields } = quoteFields(formData);
 
   const db = supabaseAdmin();
@@ -122,6 +124,7 @@ export async function createQuote(formData: FormData) {
 }
 
 export async function updateQuote(id: string, formData: FormData) {
+  await requireAdmin();
   const { packages, ...fields } = quoteFields(formData);
 
   const db = supabaseAdmin();
@@ -142,6 +145,7 @@ export async function updateQuote(id: string, formData: FormData) {
 }
 
 export async function deleteQuote(id: string, projectId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   await assertNotAccepted(db, id);
 
@@ -155,6 +159,7 @@ export async function deleteQuote(id: string, projectId: string) {
 // "accepted" is intentionally excluded from this type — only the client's
 // accept action on /quote/[id] is allowed to set it.
 export async function updateQuoteStatus(id: string, status: Extract<QuoteStatus, "draft" | "sent">) {
+  await requireAdmin();
   const db = supabaseAdmin();
   await assertNotAccepted(db, id);
   const { data: before } = await db.from("quotes").select("status").eq("id", id).single();

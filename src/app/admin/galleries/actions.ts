@@ -1,12 +1,13 @@
 "use server";
 
-// Collection / set / photo CRUD + the presigned upload flow. Runs behind the
-// /admin/:path* middleware auth gate, so these actions trust the caller and
-// use the service-role client directly. Validation mirrors the DB checks in
-// 0011_galleries.sql.
+// Collection / set / photo CRUD + the presigned upload flow. Every action
+// checks requireAdmin() first (outside any try, since it redirects by
+// throwing), then uses the service-role client directly. Validation mirrors
+// the DB checks in 0011_galleries.sql.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { deletePrefix, headObjectSize, presignPut, r2Configured } from "@/lib/r2";
 import {
   assetPrefix,
@@ -60,6 +61,7 @@ function revalidateCollection(id: string) {
 // ---------------------------------------------------------------- collections
 
 export async function createCollection(formData: FormData) {
+  await requireAdmin();
   const fields = collectionFields(formData);
   const link = await resolveLink(null, str(formData.get("project_id")));
 
@@ -81,6 +83,7 @@ export async function createCollection(formData: FormData) {
 }
 
 export async function updateCollection(id: string, formData: FormData) {
+  await requireAdmin();
   const fields = collectionFields(formData);
 
   const db = supabaseAdmin();
@@ -94,6 +97,7 @@ export async function updateCollection(id: string, formData: FormData) {
 }
 
 export async function setCollectionStatus(id: string, status: "draft" | "published") {
+  await requireAdmin();
   if (status !== "draft" && status !== "published") throw new Error("Invalid status");
 
   const db = supabaseAdmin();
@@ -110,6 +114,7 @@ export async function setCollectionStatus(id: string, status: "draft" | "publish
 // stored or echoed in plaintext. Changing visibility or setting a new password
 // bumps access_version, which signs every visitor out of this gallery.
 export async function updateCollectionAccess(id: string, formData: FormData) {
+  await requireAdmin();
   const visibility = String(formData.get("visibility") ?? "") as Visibility;
   if (!VISIBILITIES.includes(visibility)) throw new Error("Invalid visibility");
   const password = normalizePassword(String(formData.get("password") ?? ""));
@@ -167,6 +172,7 @@ async function resolveLink(contactId: string | null, projectId: string | null) {
 }
 
 export async function updateCollectionLink(id: string, formData: FormData) {
+  await requireAdmin();
   const link = await resolveLink(str(formData.get("contact_id")), str(formData.get("project_id")));
 
   const { error } = await supabaseAdmin()
@@ -182,6 +188,7 @@ export async function updateCollectionLink(id: string, formData: FormData) {
 // R2 objects go first: if that fails the rows survive and the delete can be
 // retried, rather than leaving orphaned files nobody can find.
 export async function deleteCollection(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { count, error: countErr } = await db
     .from("media_assets")
@@ -205,6 +212,7 @@ export async function deleteCollection(id: string) {
 // ----------------------------------------------------------------------- sets
 
 export async function createSet(collectionId: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Set name is required");
 
@@ -216,6 +224,7 @@ export async function createSet(collectionId: string, formData: FormData) {
 }
 
 export async function renameSet(setId: string, collectionId: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Set name is required");
 
@@ -260,6 +269,7 @@ async function swapWithNeighbour(
 }
 
 export async function moveSet(setId: string, direction: "up" | "down") {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: set, error } = await db
     .from("photo_sets")
@@ -279,6 +289,7 @@ export async function moveSet(setId: string, direction: "up" | "down") {
 }
 
 export async function deleteSet(setId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: set, error } = await db
     .from("photo_sets")
@@ -315,6 +326,7 @@ export async function deleteSet(setId: string) {
 // --------------------------------------------------------------------- photos
 
 export async function moveAsset(assetId: string, direction: "up" | "down") {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: asset, error } = await db
     .from("media_assets")
@@ -334,6 +346,7 @@ export async function moveAsset(assetId: string, direction: "up" | "down") {
 }
 
 export async function deleteAsset(assetId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: asset, error } = await db
     .from("media_assets")
@@ -354,6 +367,7 @@ export async function deleteAsset(assetId: string) {
 // Pick the gallery's cover photo. The photo must be uploaded and belong to this
 // gallery, so a forged asset id can't point a cover at someone else's photo.
 export async function setCover(collectionId: string, assetId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: asset, error } = await db
     .from("media_assets")
@@ -384,6 +398,7 @@ function message(err: unknown): string {
 }
 
 export async function startUpload(collectionId: string, setId: string, file: UploadRequest): Promise<StartResult> {
+  await requireAdmin();
   try {
     if (!r2Configured()) return { ok: false, error: "R2 isn't configured yet, uploads are disabled" };
     const ext = validateUpload(file);
@@ -423,6 +438,7 @@ export async function startUpload(collectionId: string, setId: string, file: Upl
 // Marks an asset uploaded only after R2 confirms the object exists with the
 // size that was declared at start. Anything else is cleaned up.
 export async function finishUpload(assetId: string): Promise<FinishResult> {
+  await requireAdmin();
   try {
     const db = supabaseAdmin();
     const { data: asset, error } = await db

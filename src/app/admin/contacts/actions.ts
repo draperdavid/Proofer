@@ -1,10 +1,11 @@
 "use server";
 
-// Contact CRUD. Runs behind the /admin/:path* middleware auth gate, so these
-// actions trust the caller and use the service-role client directly.
+// Contact CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import type { ContactKind } from "./types";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -40,6 +41,7 @@ function contactFields(formData: FormData) {
 }
 
 export async function createContact(formData: FormData) {
+  await requireAdmin();
   const fields = contactFields(formData);
 
   const db = supabaseAdmin();
@@ -51,6 +53,7 @@ export async function createContact(formData: FormData) {
 }
 
 export async function updateContact(id: string, formData: FormData) {
+  await requireAdmin();
   const fields = contactFields(formData);
 
   const db = supabaseAdmin();
@@ -63,6 +66,7 @@ export async function updateContact(id: string, formData: FormData) {
 }
 
 export async function deleteContact(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("contacts").delete().eq("id", id);
   if (error) throw error;

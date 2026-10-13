@@ -1,12 +1,12 @@
 "use server";
 
-// Email template edits + test sends (Phase 8.1). Runs behind the
-// /admin/:path* middleware auth gate. Test sends only ever go to the
-// signed-in user's own address, never to an address typed into a form.
+// Email template edits + test sends (Phase 8.1). Every action checks
+// requireAdmin() first. Test sends only ever go to the signed-in admin's own
+// address, never to an address typed into a form.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
-import { supabaseServer } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { TEMPLATES, isTemplateKey, type TemplateKey } from "@/lib/email/templates";
 import { cleanSubject, unknownFields } from "@/lib/email/render";
 import { sendTemplatedEmail } from "@/lib/email/send";
@@ -17,6 +17,7 @@ function templateKey(raw: string): TemplateKey {
 }
 
 export async function saveTemplate(rawKey: string, formData: FormData) {
+  await requireAdmin();
   const key = templateKey(rawKey);
   const subject = cleanSubject(String(formData.get("subject") ?? ""));
   const body = String(formData.get("body") ?? "").replace(/\r\n?/g, "\n").trim();
@@ -39,6 +40,7 @@ export async function saveTemplate(rawKey: string, formData: FormData) {
 }
 
 export async function resetTemplate(rawKey: string) {
+  await requireAdmin();
   const key = templateKey(rawKey);
   const { error } = await supabaseAdmin().from("email_templates").delete().eq("key", key);
   if (error) throw error;
@@ -48,11 +50,9 @@ export async function resetTemplate(rawKey: string) {
 }
 
 export async function sendTestEmail(rawKey: string) {
+  const user = await requireAdmin();
   const key = templateKey(rawKey);
-  const {
-    data: { user },
-  } = await (await supabaseServer()).auth.getUser();
-  if (!user?.email) throw new Error("Sign in again to send a test");
+  if (!user.email) throw new Error("Sign in again to send a test");
 
   const result = await sendTemplatedEmail({ key, to: user.email, fields: TEMPLATES[key].sample });
   revalidatePath("/admin/emails/log");
@@ -62,6 +62,7 @@ export async function sendTestEmail(rawKey: string) {
 // Lets an address receive email again (Phase 8.4), e.g. after the client
 // fixed a typo'd address or asked to be mailed again.
 export async function clearSuppression(email: string, returnTo: string) {
+  await requireAdmin();
   const { error } = await supabaseAdmin().from("email_suppressions").delete().eq("email", email.trim().toLowerCase());
   if (error) throw error;
   revalidatePath("/admin/emails");

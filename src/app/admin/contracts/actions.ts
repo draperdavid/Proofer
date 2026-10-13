@@ -1,11 +1,11 @@
 "use server";
 
-// Contract template CRUD + contract generation. Runs behind the /admin/:path*
-// middleware auth gate, so these actions trust the caller and use the
-// service-role client directly.
+// Contract template CRUD + contract generation. Every action checks
+// requireAdmin() first, then uses the service-role client directly.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { fillSmartFields } from "./smart-fields";
 import type { Contact } from "../contacts/types";
 import type { Project } from "../projects/types";
@@ -16,6 +16,7 @@ function str(raw: FormDataEntryValue | null): string | null {
 }
 
 export async function createTemplate(formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const body = String(formData.get("body") ?? "");
@@ -33,6 +34,7 @@ export async function createTemplate(formData: FormData) {
 }
 
 export async function updateTemplate(id: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const body = String(formData.get("body") ?? "");
@@ -50,6 +52,7 @@ export async function updateTemplate(id: string, formData: FormData) {
 }
 
 export async function deleteTemplate(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("contract_templates").delete().eq("id", id);
   if (error) throw error;
@@ -59,6 +62,7 @@ export async function deleteTemplate(id: string) {
 }
 
 export async function generateContract(projectId: string, formData: FormData) {
+  await requireAdmin();
   const templateId = str(formData.get("template_id"));
   if (!templateId) throw new Error("A template is required");
 

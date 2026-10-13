@@ -1,10 +1,11 @@
 "use server";
 
-// Project CRUD. Runs behind the /admin/:path* middleware auth gate, so these
-// actions trust the caller and use the service-role client directly.
+// Project CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { onStageEntered } from "@/lib/email/triggers";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -33,6 +34,7 @@ function projectFields(formData: FormData) {
 }
 
 export async function createProject(formData: FormData) {
+  await requireAdmin();
   const fields = projectFields(formData);
 
   const db = supabaseAdmin();
@@ -58,6 +60,7 @@ export async function createProject(formData: FormData) {
 }
 
 export async function updateProject(id: string, formData: FormData) {
+  await requireAdmin();
   const fields = projectFields(formData);
 
   const db = supabaseAdmin();
@@ -74,6 +77,7 @@ export async function updateProject(id: string, formData: FormData) {
 }
 
 export async function deleteProject(id: string, contactId: string | null) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("projects").delete().eq("id", id);
   if (error) throw error;
@@ -87,6 +91,7 @@ export async function deleteProject(id: string, contactId: string | null) {
 // cards), then resequences positions in the destination stage (and the source
 // stage, if different) so drag order persists cleanly with no gaps.
 export async function moveProject(projectId: string, newStageId: string, newIndex: number) {
+  await requireAdmin();
   const db = supabaseAdmin();
 
   const { data: moving, error: movingErr } = await db

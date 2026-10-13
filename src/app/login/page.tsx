@@ -14,12 +14,15 @@ export default function Login() {
     setSubmitting(true);
     setError(null);
     const supabase = supabaseBrowser();
+    // shouldCreateUser: false — only existing accounts get a link; strangers
+    // can't self-register. Unknown emails get the same "check your email"
+    // screen so the form doesn't reveal who has an account.
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback`, shouldCreateUser: false },
     });
     setSubmitting(false);
-    if (error) {
+    if (error && error.code !== "otp_disabled" && error.code !== "signup_disabled") {
       setError(error.message);
       return;
     }
@@ -30,7 +33,7 @@ export default function Login() {
     return (
       <main>
         <h1>Check your email</h1>
-        <p>We sent a sign-in link to {email}.</p>
+        <p>If {email} has an account, we sent it a sign-in link.</p>
       </main>
     );
   }

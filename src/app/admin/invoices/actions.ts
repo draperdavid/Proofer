@@ -1,7 +1,7 @@
 "use server";
 
-// Invoice CRUD. Runs behind the /admin/:path* middleware auth gate, so these
-// actions trust the caller and use the service-role client directly.
+// Invoice CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 //
 // Money-code care: totals are always recomputed here from the submitted line
 // items and rates, never trusted as posted values. Status can only move
@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { onInvoiceSent } from "@/lib/email/triggers";
 import { computeInvoiceTotals, dollarsToCents, type LineItemInput } from "./money";
 import type { DiscountType, InvoiceStatus } from "./types";
@@ -106,6 +107,7 @@ async function replaceLineItems(
 }
 
 export async function createInvoice(formData: FormData) {
+  await requireAdmin();
   const { lineItems, ...fields } = invoiceFields(formData);
   const totals = computeInvoiceTotals(lineItems, {
     discountType: fields.discount_type,
@@ -135,6 +137,7 @@ export async function createInvoice(formData: FormData) {
 }
 
 export async function updateInvoice(id: string, formData: FormData) {
+  await requireAdmin();
   const { lineItems, ...fields } = invoiceFields(formData);
   const totals = computeInvoiceTotals(lineItems, {
     discountType: fields.discount_type,
@@ -173,6 +176,7 @@ export async function updateInvoice(id: string, formData: FormData) {
 }
 
 export async function deleteInvoice(id: string, projectId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("invoices").delete().eq("id", id);
   if (error) throw error;
@@ -188,6 +192,7 @@ export async function updateInvoiceStatus(
   id: string,
   status: Extract<InvoiceStatus, "draft" | "sent" | "void">
 ) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { data: existing, error: existingError } = await db
     .from("invoices")

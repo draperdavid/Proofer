@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
+import { isAdminEmail } from "@/lib/auth/admins";
 import { AdminShell } from "./_components/admin-nav";
 import { SignOutButton } from "./sign-out-button";
 
@@ -10,7 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return <>{children}</>;
+  if (!user || !isAdminEmail(user.email)) return <>{children}</>;
 
   return (
     <AdminShell email={user.email ?? ""} signOut={<SignOutButton />}>

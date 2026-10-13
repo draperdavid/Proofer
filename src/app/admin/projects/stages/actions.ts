@@ -1,9 +1,10 @@
 "use server";
 
-// Stage CRUD. Runs behind the /admin/:path* middleware auth gate, so these
-// actions trust the caller and use the service-role client directly.
+// Stage CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { isStageTemplate, isTemplateKey } from "@/lib/email/templates";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -17,6 +18,7 @@ function revalidateStagesAndBoard() {
 }
 
 export async function createStage(formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const color = str(formData.get("color"));
@@ -33,6 +35,7 @@ export async function createStage(formData: FormData) {
 }
 
 export async function renameStage(id: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const color = str(formData.get("color"));
@@ -45,6 +48,7 @@ export async function renameStage(id: string, formData: FormData) {
 }
 
 export async function moveStage(id: string, direction: "up" | "down") {
+  await requireAdmin();
   const db = supabaseAdmin();
 
   const { data: stages, error } = await db
@@ -73,6 +77,7 @@ export async function moveStage(id: string, direction: "up" | "down") {
 // the lowest position first (reassign-to-default, per spec: simpler and
 // non-destructive than blocking the delete outright).
 export async function deleteStage(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
 
   const { data: stages, error: stagesErr } = await db
@@ -119,6 +124,7 @@ export async function deleteStage(id: string) {
 // Stage email rules (Phase 8.2): entering a stage emails the project's
 // contact. Only templates a project can fill are accepted.
 export async function addStageEmail(stageId: string, formData: FormData) {
+  await requireAdmin();
   const key = str(formData.get("template_key"));
   if (!key || !isTemplateKey(key) || !isStageTemplate(key)) {
     throw new Error("Pick an email that can be sent on a stage change");
@@ -132,6 +138,7 @@ export async function addStageEmail(stageId: string, formData: FormData) {
 }
 
 export async function removeStageEmail(ruleId: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("automation_rules").delete().eq("id", ruleId);
   if (error) throw error;

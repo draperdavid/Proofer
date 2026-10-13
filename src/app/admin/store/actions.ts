@@ -1,12 +1,13 @@
 "use server";
 
-// Store catalog CRUD (Phase 7.1). Runs behind the /admin/:path* middleware
-// auth gate, so these actions trust the caller and use the service-role
-// client directly. Validation mirrors the DB checks in 0015_store_catalog.sql
-// so David gets a readable error instead of a raw Postgres one.
+// Store catalog CRUD (Phase 7.1). Every action checks requireAdmin() first,
+// then uses the service-role client directly. Validation mirrors the DB
+// checks in 0015_store_catalog.sql so David gets a readable error instead of
+// a raw Postgres one.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { parsePriceCents } from "@/lib/store/catalog";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -65,6 +66,7 @@ async function swapWithNeighbour(
 // ----------------------------------------------------------------- categories
 
 export async function createCategory(formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Category name is required");
 
@@ -76,6 +78,7 @@ export async function createCategory(formData: FormData) {
 }
 
 export async function renameCategory(id: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Category name is required");
 
@@ -87,6 +90,7 @@ export async function renameCategory(id: string, formData: FormData) {
 }
 
 export async function moveCategory(id: string, direction: "up" | "down") {
+  await requireAdmin();
   const { data: category, error } = await supabaseAdmin()
     .from("product_categories")
     .select("id, position")
@@ -101,6 +105,7 @@ export async function moveCategory(id: string, direction: "up" | "down") {
 
 // Products in it become uncategorized (on delete set null); none are deleted.
 export async function deleteCategory(id: string) {
+  await requireAdmin();
   const { error } = await supabaseAdmin().from("product_categories").delete().eq("id", id);
   if (error) throw error;
 
@@ -129,6 +134,7 @@ function productFields(formData: FormData) {
 }
 
 export async function createProduct(formData: FormData) {
+  await requireAdmin();
   const fields = productFields(formData);
 
   const { data, error } = await supabaseAdmin().from("products").insert(fields).select("id").single();
@@ -139,6 +145,7 @@ export async function createProduct(formData: FormData) {
 }
 
 export async function updateProduct(id: string, formData: FormData) {
+  await requireAdmin();
   const fields = productFields(formData);
 
   const { error } = await supabaseAdmin()
@@ -153,6 +160,7 @@ export async function updateProduct(id: string, formData: FormData) {
 // Variants go with it (on delete cascade). Once orders exist (7.3) they keep
 // a snapshot of name and price, so deleting a product never rewrites history.
 export async function deleteProduct(id: string) {
+  await requireAdmin();
   const { error } = await supabaseAdmin().from("products").delete().eq("id", id);
   if (error) throw error;
 
@@ -175,6 +183,7 @@ function variantFields(formData: FormData) {
 }
 
 export async function createVariant(productId: string, formData: FormData) {
+  await requireAdmin();
   const fields = variantFields(formData);
 
   const { error } = await supabaseAdmin()
@@ -186,6 +195,7 @@ export async function createVariant(productId: string, formData: FormData) {
 }
 
 export async function updateVariant(variantId: string, productId: string, formData: FormData) {
+  await requireAdmin();
   const fields = variantFields(formData);
 
   const { error } = await supabaseAdmin()
@@ -199,6 +209,7 @@ export async function updateVariant(variantId: string, productId: string, formDa
 }
 
 export async function moveVariant(variantId: string, direction: "up" | "down") {
+  await requireAdmin();
   const { data: variant, error } = await supabaseAdmin()
     .from("product_variants")
     .select("id, product_id, position")
@@ -217,6 +228,7 @@ export async function moveVariant(variantId: string, direction: "up" | "down") {
 }
 
 export async function deleteVariant(variantId: string, productId: string) {
+  await requireAdmin();
   const { error } = await supabaseAdmin()
     .from("product_variants")
     .delete()

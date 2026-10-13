@@ -1,13 +1,15 @@
 "use server";
 
-// Availability window CRUD. Runs behind the /admin/:path* middleware auth
-// gate, so these actions trust the caller and use the service-role client.
-// Validation mirrors the checks in 0010_availability.sql.
+// Availability window CRUD. Every action checks requireAdmin() first, then
+// uses the service-role client. Validation mirrors the checks in
+// 0010_availability.sql.
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { isValidTimeZone, parseTimeOfDay } from "@/lib/booking/slots";
 
 export async function createWindow(formData: FormData) {
+  await requireAdmin();
   const weekday = Number(formData.get("weekday"));
   if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new Error("Pick a weekday");
 
@@ -38,6 +40,7 @@ export async function createWindow(formData: FormData) {
 }
 
 export async function deleteWindow(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("availability_windows").delete().eq("id", id);
   if (error) throw error;

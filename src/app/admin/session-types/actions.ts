@@ -1,13 +1,14 @@
 "use server";
 
-// Session type CRUD. Runs behind the /admin/:path* middleware auth gate, so
-// these actions trust the caller and use the service-role client directly.
+// Session type CRUD. Every action checks requireAdmin() first, then uses the
+// service-role client directly.
 // Validation here mirrors the DB check constraints in 0009_session_types.sql
 // and the booking-rule columns from 0010_availability.sql,
 // so David gets a readable error instead of a raw Postgres one.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { dollarsToCents } from "../invoices/money";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -89,6 +90,7 @@ function rethrow(error: { code?: string }, slug: string): never {
 }
 
 export async function createSessionType(formData: FormData) {
+  await requireAdmin();
   const fields = sessionTypeFields(formData);
 
   const db = supabaseAdmin();
@@ -100,6 +102,7 @@ export async function createSessionType(formData: FormData) {
 }
 
 export async function updateSessionType(id: string, formData: FormData) {
+  await requireAdmin();
   const fields = sessionTypeFields(formData);
 
   const db = supabaseAdmin();
@@ -115,6 +118,7 @@ export async function updateSessionType(id: string, formData: FormData) {
 }
 
 export async function deleteSessionType(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("session_types").delete().eq("id", id);
   if (error) throw error;

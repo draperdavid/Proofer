@@ -1,11 +1,12 @@
 "use server";
 
-// Questionnaire template CRUD + sending a questionnaire to a project. Runs
-// behind the /admin/:path* middleware auth gate, so these actions trust the
-// caller and use the service-role client directly.
+// Questionnaire template CRUD + sending a questionnaire to a project. Every
+// action checks requireAdmin() first, then uses the service-role client
+// directly.
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/require-admin";
 import { onQuestionnaireSent } from "@/lib/email/triggers";
 import type { QuestionnaireField, QuestionnaireFieldType } from "./types";
 
@@ -65,6 +66,7 @@ function parseFields(raw: FormDataEntryValue | null): QuestionnaireField[] {
 }
 
 export async function createTemplate(formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const fields = parseFields(formData.get("fields_json"));
@@ -82,6 +84,7 @@ export async function createTemplate(formData: FormData) {
 }
 
 export async function updateTemplate(id: string, formData: FormData) {
+  await requireAdmin();
   const name = str(formData.get("name"));
   if (!name) throw new Error("Name is required");
   const fields = parseFields(formData.get("fields_json"));
@@ -99,6 +102,7 @@ export async function updateTemplate(id: string, formData: FormData) {
 }
 
 export async function deleteTemplate(id: string) {
+  await requireAdmin();
   const db = supabaseAdmin();
   const { error } = await db.from("questionnaire_templates").delete().eq("id", id);
   if (error) throw error;
@@ -108,6 +112,7 @@ export async function deleteTemplate(id: string) {
 }
 
 export async function sendQuestionnaire(projectId: string, formData: FormData) {
+  await requireAdmin();
   const templateId = str(formData.get("template_id"));
   if (!templateId) throw new Error("A template is required");
 
