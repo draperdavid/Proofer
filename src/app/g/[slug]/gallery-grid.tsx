@@ -11,7 +11,9 @@ export type GridPhoto = {
   label: string;
   gridUrl: string;
   largeUrl: string;
-  downloadHref: string;
+  // null when this photo can't be downloaded (5.5): downloads off, set not
+  // downloadable, or the visitor must give their email first.
+  downloadHref: string | null;
   favorited: boolean;
 };
 
@@ -126,9 +128,11 @@ export function GalleryGrid({
               <img src={photo.gridUrl} alt={photo.label} loading="lazy" />
             </button>
             <div className="gover">
-              <a href={photo.downloadHref} className="icon" aria-label={`Download ${photo.label}`} title="Download">
-                ↓
-              </a>
+              {photo.downloadHref && (
+                <a href={photo.downloadHref} className="icon" aria-label={`Download ${photo.label}`} title="Download">
+                  ↓
+                </a>
+              )}
               {heart(photo)}
             </div>
           </li>
@@ -186,9 +190,11 @@ export function GalleryGrid({
             </>
           )}
           <div className="lb-bar" onClick={(e) => e.stopPropagation()}>
-            <a href={current.downloadHref} className="icon wide">
-              Download
-            </a>
+            {current.downloadHref && (
+              <a href={current.downloadHref} className="icon wide">
+                Download
+              </a>
+            )}
             {heart(current, "icon")}
           </div>
         </div>

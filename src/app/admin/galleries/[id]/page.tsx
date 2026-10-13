@@ -11,14 +11,17 @@ import {
   moveAsset,
   moveSet,
   renameSet,
+  setSetDownloadable,
   setCollectionStatus,
   setCover,
   updateCollection,
   updateCollectionAccess,
   updateCollectionLink,
+  updateDownloadSettings,
 } from "../actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/galleries/access";
 import { accessSecret } from "@/lib/galleries/viewer-access";
+import { DOWNLOAD_SIZES, DOWNLOAD_SIZE_LABELS } from "@/lib/galleries/download";
 import { CollectionFields } from "../collection-fields";
 import { Uploader } from "../uploader";
 import type { Collection, MediaAsset, PhotoSet } from "../types";
@@ -85,6 +88,19 @@ export default async function CollectionDetailPage({
     if (!asset) continue;
     favoritesByVisitor.set(f.visitor_email, [...(favoritesByVisitor.get(f.visitor_email) ?? []), asset]);
   }
+  // Downloads used (5.5): distinct photos per visitor. Tolerates the table not
+  // existing yet (42P01) so the page works before migration 0021 is run.
+  const { data: grantRows, error: grantsErr } = await db
+    .from("download_grants")
+    .select("asset_id, visitor_key")
+    .eq("collection_id", id);
+  if (grantsErr && grantsErr.code !== "42P01") throw grantsErr;
+  const downloadsMigrated = !grantsErr;
+  const grants = grantRows ?? [];
+  const grantsByVisitor = new Map<string, number>();
+  for (const g of grants) grantsByVisitor.set(g.visitor_key, (grantsByVisitor.get(g.visitor_key) ?? 0) + 1);
+  const photosDownloaded = new Set(grants.map((g) => g.asset_id)).size;
+
   const storageReady = r2Configured();
   // The cover is the chosen photo, else the first uploaded one (same rule as the Galleries list and client page).
   const coverId = collection.cover_asset_id ?? assets.find((a) => a.status === "uploaded")?.id ?? null;
@@ -104,6 +120,7 @@ export default async function CollectionDetailPage({
   const updateThis = updateCollection.bind(null, collection.id);
   const updateAccess = updateCollectionAccess.bind(null, collection.id);
   const updateLink = updateCollectionLink.bind(null, collection.id);
+  const updateDownloads = updateDownloadSettings.bind(null, collection.id);
   const accessSecretSet = accessSecret() !== null;
   const toggleStatus = setCollectionStatus.bind(
     null,
@@ -115,7 +132,7 @@ export default async function CollectionDetailPage({
 
   // ---- editor layout (Pixieset-style): top bar, left panel (cover + tabs), main area ----
   const tab = tabParam === "settings" || tabParam === "activity" ? tabParam : "photos";
-  const section = sectionParam === "privacy" ? "privacy" : "general";
+  const section = sectionParam === "privacy" || sectionParam === "downloads" ? sectionParam : "general";
   const activeSet = sets.find((s) => s.id === setParam) ?? sets[0];
   const base = `/admin/galleries/${collection.id}`;
   const coverThumb = coverId ? thumbs.get(coverId) : undefined;
@@ -239,6 +256,10 @@ export default async function CollectionDetailPage({
                   {collection.visibility}
                 </span>
               </Link>
+              <Link href={`${base}?tab=settings&section=downloads`} className={`ed-set${section === "downloads" ? " on" : ""}`}>
+                <span>Downloads</span>
+                <span className="st grey">{collection.downloads_enabled === false ? "Off" : "On"}</span>
+              </Link>
             </div>
           )}
 
@@ -262,6 +283,11 @@ export default async function CollectionDetailPage({
                     <form action={renameSet.bind(null, activeSet.id, collection.id)} className="row" style={{ marginBottom: 6 }}>
                       <input type="text" name="name" defaultValue={activeSet.name} required />
                       <button type="submit">Rename</button>
+                    </form>
+                    <form action={setSetDownloadable.bind(null, activeSet.id, collection.id, activeSet.downloadable === false)}>
+                      <button type="submit">
+                        {activeSet.downloadable === false ? "Allow downloads from this set" : "Turn off downloads for this set"}
+                      </button>
                     </form>
                     <form action={moveSet.bind(null, activeSet.id, "up")}>
                       <button type="submit" disabled={activeIndex === 0}>
@@ -438,8 +464,98 @@ export default async function CollectionDetailPage({
             </div>
           )}
 
+          {tab === "settings" && section === "downloads" && (
+            <div className="ed-form">
+              <h2>Downloads</h2>
+              {!downloadsMigrated && (
+                <p role="alert" className="notice">
+                  Download limits need migration 0021 run in Supabase before these settings save.
+                </p>
+              )}
+              <form action={updateDownloads}>
+                <div>
+                  <label>
+                    <input type="checkbox" name="downloads_enabled" defaultChecked={collection.downloads_enabled !== false} />{" "}
+                    Clients can download photos
+                  </label>
+                </div>
+                <div>
+                  <label htmlFor="download_size">Size clients download</label>
+                  <select id="download_size" name="download_size" defaultValue={collection.download_size ?? "original"}>
+                    {DOWNLOAD_SIZES.map((sz) => (
+                      <option key={sz} value={sz}>
+                        {DOWNLOAD_SIZE_LABELS[sz]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="download_limit">Gallery limit: photos that can be downloaded in total (blank = no limit)</label>
+                  <input
+                    id="download_limit"
+                    name="download_limit"
+                    type="number"
+                    min={0}
+                    step={1}
+                    defaultValue={collection.download_limit ?? ""}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="per_person_download_limit">
+                    Per-person limit: photos each client email can download (blank = no limit)
+                  </label>
+                  <input
+                    id="per_person_download_limit"
+                    name="per_person_download_limit"
+                    type="number"
+                    min={0}
+                    step={1}
+                    defaultValue={collection.per_person_download_limit ?? ""}
+                  />
+                </div>
+                <button type="submit" className="primary" style={{ marginTop: 12 }}>
+                  Save downloads
+                </button>
+              </form>
+              <p className="hint">
+                Limits count photos, not clicks: downloading the same photo again is free. With a per-person limit, clients
+                enter their email (the same one favorites use) before they can download; that email isn&apos;t verified.
+                Turn off downloads for a single set from its Set options menu.
+              </p>
+              {sets.some((st) => st.downloadable === false) && (
+                <p className="muted">
+                  Not downloadable: {sets.filter((st) => st.downloadable === false).map((st) => st.name).join(", ")}
+                </p>
+              )}
+            </div>
+          )}
+
           {tab === "activity" && (
             <div className="ed-form wide">
+              <h2>Downloads</h2>
+              {grants.length === 0 ? (
+                <p className="muted">No downloads yet.</p>
+              ) : (
+                <>
+                  <p>
+                    {photosDownloaded} photo{photosDownloaded === 1 ? "" : "s"} downloaded
+                    {collection.download_limit != null ? ` of ${collection.download_limit} allowed` : ""}.
+                  </p>
+                  <ul>
+                    {[...grantsByVisitor].map(([visitor, count]) => {
+                      const contact = visitor ? contactByEmail.get(visitor) : undefined;
+                      return (
+                        <li key={visitor || "anon"}>
+                          {contact ? <Link href={`/admin/contacts/${contact.id}`}>{contact.name}</Link> : visitor || "Visitors without an email"}
+                          {contact && ` (${visitor})`}: {count} photo{count === 1 ? "" : "s"}
+                          {visitor && collection.per_person_download_limit != null ? ` of ${collection.per_person_download_limit}` : ""}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+
               <h2>Favorites</h2>
               {favoritesByVisitor.size === 0 && <p className="muted">No favorites yet.</p>}
               {[...favoritesByVisitor].map(([email, picks]) => {

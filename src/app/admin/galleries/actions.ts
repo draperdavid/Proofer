@@ -23,6 +23,7 @@ import {
   validatePassword,
   type Visibility,
 } from "@/lib/galleries/access";
+import { isDownloadSize, parseLimit } from "@/lib/galleries/download";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -465,4 +466,36 @@ export async function finishUpload(assetId: string): Promise<FinishResult> {
   } catch (err) {
     return { ok: false, error: message(err) };
   }
+}
+
+// Download limits (5.5). Settings only: the counting and enforcement live in
+// claim_download() in the database. Lowering a limit below what's already
+// been used just stops new downloads; nothing is taken back.
+export async function updateDownloadSettings(id: string, formData: FormData) {
+  await requireAdmin();
+  const size = String(formData.get("download_size") ?? "");
+  if (!isDownloadSize(size)) throw new Error("Invalid download size");
+  const { error } = await supabaseAdmin()
+    .from("collections")
+    .update({
+      downloads_enabled: formData.get("downloads_enabled") === "on",
+      download_size: size,
+      download_limit: parseLimit(String(formData.get("download_limit") ?? "")),
+      per_person_download_limit: parseLimit(String(formData.get("per_person_download_limit") ?? "")),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) throw error;
+  revalidateCollection(id);
+}
+
+export async function setSetDownloadable(setId: string, collectionId: string, downloadable: boolean) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin()
+    .from("photo_sets")
+    .update({ downloadable })
+    .eq("id", setId)
+    .eq("collection_id", collectionId);
+  if (error) throw error;
+  revalidateCollection(collectionId);
 }

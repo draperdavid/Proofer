@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { presignGet, r2Configured } from "@/lib/r2";
 import { resolveGalleryAccess, resolveVisitorEmail } from "@/lib/galleries/viewer-access";
 import { GRID_SIZE, LIGHTBOX_SIZE, displayKey } from "@/lib/galleries/variants";
+import { CLAIM_REFUSALS, isClaimRefusal, remainingDownloads } from "@/lib/galleries/download";
 import { clearFavoritesEmail, setFavoritesEmail, toggleFavorite, unlockGallery } from "./actions";
 import { GalleryGrid, type GridPhoto } from "./gallery-grid";
 
@@ -25,6 +26,8 @@ const FAV_ERRORS: Record<string, string> = {
   unavailable: "Favorites aren't available right now.",
 };
 
+const DOWNLOAD_NOT_READY = "This photo isn't ready to download yet. Try again in a few minutes.";
+
 const FAVORITES_TAB = "favorites";
 
 export default async function GalleryPage({
@@ -32,10 +35,10 @@ export default async function GalleryPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string; set?: string; fav?: string }>;
+  searchParams: Promise<{ error?: string; set?: string; fav?: string; dl?: string }>;
 }) {
   const { slug } = await params;
-  const { error, set: setParam, fav } = await searchParams;
+  const { error, set: setParam, fav, dl } = await searchParams;
 
   const result = await resolveGalleryAccess(slug);
   if (!result) notFound();
@@ -72,7 +75,7 @@ export default async function GalleryPage({
   const db = supabaseAdmin();
   const visitorEmail = await resolveVisitorEmail(collection.id);
   const [setsRes, assetsRes, favsRes] = await Promise.all([
-    db.from("photo_sets").select("id, name").eq("collection_id", collection.id).order("position"),
+    db.from("photo_sets").select("id, name, downloadable").eq("collection_id", collection.id).order("position"),
     db
       .from("media_assets")
       .select("id, collection_id, set_id, r2_key, variants, variants_ready")
@@ -88,10 +91,39 @@ export default async function GalleryPage({
   if (favsRes.error) throw favsRes.error;
   const sets = setsRes.data ?? [];
   const assets = assetsRes.data ?? [];
-  const { data: coverRow } = await db.from("collections").select("cover_asset_id").eq("id", collection.id).maybeSingle();
+  const { data: coverRow, error: coverErr } = await db
+    .from("collections")
+    .select("cover_asset_id, downloads_enabled, download_limit, per_person_download_limit")
+    .eq("id", collection.id)
+    .maybeSingle();
+  if (coverErr) throw coverErr;
   const coverAsset = assets.find((a) => a.id === coverRow?.cover_asset_id) ?? assets[0];
   const heroUrl = coverAsset && r2Configured() ? await presignGet(displayKey(coverAsset, LIGHTBOX_SIZE)) : null;
   const favoriteIds = new Set((favsRes.data ?? []).map((f) => f.asset_id));
+
+  // Downloads (5.5). The download route enforces all of this again; here it
+  // only decides which buttons to show and what to tell the visitor.
+  const downloadsOn = coverRow?.downloads_enabled !== false;
+  const downloadableSets = new Set(sets.filter((s) => s.downloadable !== false).map((s) => s.id));
+  const galleryLimit = (coverRow?.download_limit as number | null) ?? null;
+  const personLimit = (coverRow?.per_person_download_limit as number | null) ?? null;
+  let remaining: number | null = null;
+  if (downloadsOn && (galleryLimit !== null || personLimit !== null)) {
+    const { data: grants, error: grantsErr } = await db
+      .from("download_grants")
+      .select("asset_id, visitor_key")
+      .eq("collection_id", collection.id);
+    if (grantsErr) throw grantsErr;
+    const rows = grants ?? [];
+    remaining = remainingDownloads({
+      galleryLimit,
+      galleryUsed: new Set(rows.map((g) => g.asset_id)).size,
+      personLimit,
+      personUsed: visitorEmail ? rows.filter((g) => g.visitor_key === visitorEmail).length : 0,
+    });
+  }
+  const needsEmailToDownload = downloadsOn && personLimit !== null && !visitorEmail;
+  const dlMessage = dl === "not_ready" ? DOWNLOAD_NOT_READY : dl && isClaimRefusal(dl) ? CLAIM_REFUSALS[dl] : null;
 
   const showFavorites = setParam === FAVORITES_TAB && visitorEmail !== null;
   const activeSet = showFavorites ? undefined : (sets.find((s) => s.id === setParam) ?? sets[0]);
@@ -112,7 +144,10 @@ export default async function GalleryPage({
         label: `Photo ${i + 1}`,
         gridUrl: await presignGet(displayKey(a, GRID_SIZE)),
         largeUrl: await presignGet(displayKey(a, LIGHTBOX_SIZE)),
-        downloadHref: `/g/${collection.slug}/download/${a.id}`,
+        downloadHref:
+          downloadsOn && downloadableSets.has(a.set_id) && !needsEmailToDownload
+            ? `/g/${collection.slug}/download/${a.id}`
+            : null,
         favorited: favoriteIds.has(a.id),
       }))
     );
@@ -144,12 +179,28 @@ export default async function GalleryPage({
         </form>
       ) : (
         <form action={saveEmail} className="row">
-          <label htmlFor="fav-email">Enter your email to save favorites</label>
+          <label htmlFor="fav-email">
+            {personLimit !== null && downloadsOn
+              ? "Enter your email to save favorites and download"
+              : "Enter your email to save favorites"}
+          </label>
           <input id="fav-email" name="email" type="email" autoComplete="email" required />
           <button type="submit">Start favoriting</button>
         </form>
       )}
       {fav && FAV_ERRORS[fav] && <p role="alert">{FAV_ERRORS[fav]}</p>}
+      {dlMessage && (
+        <p role="alert" className="notice">
+          {dlMessage}
+        </p>
+      )}
+      {remaining !== null && !needsEmailToDownload && (
+        <p className="hint">
+          {remaining === 0
+            ? "No downloads left. Photos you've already downloaded can be downloaded again."
+            : `${remaining} download${remaining === 1 ? "" : "s"} left. Downloading a photo again doesn't use one.`}
+        </p>
+      )}
 
       {(sets.length > 1 || visitorEmail) && (
         <nav aria-label="Sets" className="settabs">

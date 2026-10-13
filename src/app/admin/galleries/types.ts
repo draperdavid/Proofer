@@ -13,6 +13,11 @@ export type Collection = {
   contact_id: string | null;
   project_id: string | null;
   cover_asset_id?: string | null; // added in 0019; absent until that migration is run
+  // Download limits (5.5, migration 0021); absent until it's run.
+  downloads_enabled?: boolean;
+  download_size?: string;
+  download_limit?: number | null;
+  per_person_download_limit?: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -22,6 +27,7 @@ export type PhotoSet = {
   collection_id: string;
   name: string;
   position: number;
+  downloadable?: boolean; // 0021
 };
 
 export type MediaAsset = {

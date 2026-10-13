@@ -34,3 +34,62 @@ test("an empty name falls back to photo", () => {
   assert.ok(attachmentDisposition("").includes(`filename="photo"`));
   assert.ok(attachmentDisposition("dir/").includes(`filename="photo"`));
 });
+
+// ------------------------------------------------------------- 5.5 limits
+import {
+  downloadFilename,
+  downloadKeyFor,
+  isClaimRefusal,
+  isDownloadSize,
+  parseLimit,
+  remainingDownloads,
+} from "./download.ts";
+
+const asset = {
+  collection_id: "c1",
+  id: "a1",
+  r2_key: "collections/c1/a1/original.jpg",
+  variants_ready: true,
+  variants: { "2048": { key: "collections/c1/a1/2048.jpg" }, "1024": { key: "collections/other/a1/1024.jpg" } },
+};
+
+test("download key: original, ready variant, never a fallback to full-res", () => {
+  assert.equal(downloadKeyFor(asset, "original"), "collections/c1/a1/original.jpg");
+  assert.equal(downloadKeyFor(asset, "2048"), "collections/c1/a1/2048.jpg");
+  assert.equal(downloadKeyFor(asset, "3600"), null);
+  // A variant key outside this photo's prefix isn't trusted.
+  assert.equal(downloadKeyFor(asset, "1024"), null);
+  assert.equal(downloadKeyFor({ ...asset, variants_ready: false }, "2048"), null);
+});
+
+test("download sizes and filenames", () => {
+  assert.ok(isDownloadSize("original") && isDownloadSize("2048"));
+  assert.ok(!isDownloadSize("640") && !isDownloadSize(""));
+  assert.equal(downloadFilename("IMG_0042.CR3.jpg", "original"), "IMG_0042.CR3.jpg");
+  assert.equal(downloadFilename("IMG_0042.png", "2048"), "IMG_0042-2048.jpg");
+  assert.equal(downloadFilename("dir/x", "1024"), "x-1024.jpg");
+});
+
+test("limit fields: blank is unlimited, junk is refused", () => {
+  assert.equal(parseLimit(""), null);
+  assert.equal(parseLimit("  "), null);
+  assert.equal(parseLimit("0"), 0);
+  assert.equal(parseLimit(" 25 "), 25);
+  assert.throws(() => parseLimit("-1"));
+  assert.throws(() => parseLimit("2.5"));
+  assert.throws(() => parseLimit("1e3"));
+});
+
+test("remaining downloads is the tighter limit, never negative", () => {
+  assert.equal(remainingDownloads({ galleryLimit: null, galleryUsed: 9, personLimit: null, personUsed: 9 }), null);
+  assert.equal(remainingDownloads({ galleryLimit: 25, galleryUsed: 10, personLimit: null, personUsed: 0 }), 15);
+  assert.equal(remainingDownloads({ galleryLimit: 25, galleryUsed: 10, personLimit: 5, personUsed: 2 }), 3);
+  assert.equal(remainingDownloads({ galleryLimit: 5, galleryUsed: 9, personLimit: 5, personUsed: 0 }), 0);
+});
+
+test("claim refusals are known, ok and not_found are not refusals with messages", () => {
+  assert.ok(isClaimRefusal("person_limit"));
+  assert.ok(!isClaimRefusal("ok"));
+  assert.ok(!isClaimRefusal("not_found"));
+  assert.ok(!isClaimRefusal("toString"));
+});
