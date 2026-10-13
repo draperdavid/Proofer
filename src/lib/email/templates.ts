@@ -11,6 +11,8 @@ export type TemplateKey =
   | "payment_receipt"
   | "quote_sent"
   | "contract_sent"
+  | "contract_signed"
+  | "contract_signed_notice"
   | "questionnaire_sent"
   | "booking_confirmation"
   | "inquiry_received"
@@ -134,7 +136,43 @@ David`,
     sample: {
       ...SAMPLE_CONTACT,
       "project.title": "Ellis Family Session",
-      "contract.link": "https://example.com/contract/1234",
+      "contract.link": "https://example.com/sign/1234",
+    },
+  },
+  contract_signed: {
+    key: "contract_signed",
+    name: "Contract signed (client copy)",
+    description: "Goes to the client the moment they sign.",
+    fields: [...CONTACT, "project.title", "contract.link"],
+    subject: "Signed: your contract for {{project.title}}",
+    body: `Hi {{contact.first_name}},
+
+Thanks for signing. Your contract for {{project.title}} is locked in, and your signed copy is here any time:
+
+{{contract.link}}
+
+David`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "project.title": "Ellis Family Session",
+      "contract.link": "https://example.com/sign/1234",
+    },
+  },
+  contract_signed_notice: {
+    key: "contract_signed_notice",
+    name: "Contract signed (note to you)",
+    description: "Goes to you when a client signs.",
+    fields: [...CONTACT, "project.title", "contract.link"],
+    subject: "{{contact.name}} signed the {{project.title}} contract",
+    body: `{{contact.name}} just signed the contract for {{project.title}}.
+
+Signed copy and audit trail:
+
+{{contract.link}}`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "project.title": "Ellis Family Session",
+      "contract.link": "https://example.com/admin/contracts/1234",
     },
   },
   questionnaire_sent: {

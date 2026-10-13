@@ -5,6 +5,7 @@
 import { headers } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { env } from "@/lib/env";
+import { ADMIN_EMAILS } from "@/lib/auth/admins";
 import { sendTemplatedEmail } from "./send";
 import { isStageTemplate, isTemplateKey } from "./templates";
 import { absoluteUrl, formatCents, formatDate, idempotencyKeys, projectFields } from "./events";
@@ -177,6 +178,85 @@ export async function onQuestionnaireSent(questionnaireId: string) {
       contactId: contact.id,
       projectId: q.project_id as string,
       idempotencyKey: idempotencyKeys.questionnaireSent(q.id as string),
+    });
+  });
+}
+
+type ContractRow = { id: string; status: string; contact_id: string; project_id: string; projects: { title: string } | null };
+
+async function loadContract(contractId: string): Promise<ContractRow> {
+  const { data, error } = await supabaseAdmin()
+    .from("contracts")
+    .select("id, status, contact_id, project_id, projects(title)")
+    .eq("id", contractId)
+    .single();
+  if (error || !data) throw error ?? new Error("Contract not found");
+  return data as unknown as ContractRow;
+}
+
+// A contract was sent for signature (Phase 3.3): email the signing link.
+export async function onContractSent(contractId: string) {
+  await safely(`contract sent ${contractId}`, async () => {
+    const contract = await loadContract(contractId);
+    if (contract.status !== "awaiting_signature") return;
+    const contact = await loadContact(contract.contact_id);
+    if (!contact) return;
+
+    const base = await appBaseUrl();
+    await sendTemplatedEmail({
+      key: "contract_sent",
+      to: contact.email ?? "",
+      fields: {
+        ...projectFields(contact.name, contract.projects?.title),
+        "contract.link": absoluteUrl(base, `/sign/${contract.id}`),
+      },
+      contactId: contact.id,
+      projectId: contract.project_id,
+      idempotencyKey: idempotencyKeys.contractSent(contract.id),
+    });
+  });
+}
+
+// A contract was signed (Phase 3.2): the client gets a link to their signed
+// copy, and David gets a note pointing at the admin record. Each send is
+// guarded separately so one failing doesn't stop the other.
+export async function onContractSigned(contractId: string) {
+  let c: ContractRow;
+  let who: ContactRow | null;
+  let base: string;
+  try {
+    c = await loadContract(contractId);
+    who = await loadContact(c.contact_id);
+    base = await appBaseUrl();
+  } catch (err) {
+    console.error(`email trigger failed: contract signed ${contractId}`, err);
+    return;
+  }
+  if (c.status !== "completed") return;
+  const fields = projectFields(who?.name, c.projects?.title);
+  const contract = c;
+
+  const client = who;
+  if (client) {
+    await safely(`contract signed ${contractId} (client)`, async () => {
+      await sendTemplatedEmail({
+        key: "contract_signed",
+        to: client.email ?? "",
+        fields: { ...fields, "contract.link": absoluteUrl(base, `/sign/${contract.id}`) },
+        contactId: client.id,
+        projectId: contract.project_id,
+        idempotencyKey: idempotencyKeys.contractSigned(contract.id),
+      });
+    });
+  }
+  await safely(`contract signed ${contractId} (David)`, async () => {
+    await sendTemplatedEmail({
+      key: "contract_signed_notice",
+      to: ADMIN_EMAILS[0],
+      fields: { ...fields, "contract.link": absoluteUrl(base, `/admin/contracts/${contract.id}`) },
+      contactId: client?.id ?? null,
+      projectId: contract.project_id,
+      idempotencyKey: idempotencyKeys.contractSignedNotice(contract.id),
     });
   });
 }

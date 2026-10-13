@@ -27,6 +27,9 @@ export const idempotencyKeys = {
   invoiceSent: (invoiceId: string, totalCents: number) => `invoice_sent:${invoiceId}:${totalCents}`,
   quoteSent: (quoteId: string) => `quote_sent:${quoteId}`,
   questionnaireSent: (questionnaireId: string) => `questionnaire_sent:${questionnaireId}`,
+  contractSent: (contractId: string) => `contract_sent:${contractId}`,
+  contractSigned: (contractId: string) => `contract_signed:${contractId}`,
+  contractSignedNotice: (contractId: string) => `contract_signed_notice:${contractId}`,
 };
 
 // "$1,234.50" from integer cents.

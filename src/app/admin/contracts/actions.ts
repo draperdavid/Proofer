@@ -6,7 +6,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth/require-admin";
+import { headers } from "next/headers";
 import { fillSmartFields } from "./smart-fields";
+import { onContractSent } from "@/lib/email/triggers";
+import { MAX_IP, MAX_USER_AGENT, cleanHeader } from "@/lib/contracts/signing";
 import type { Contact } from "../contacts/types";
 import type { Project } from "../projects/types";
 
@@ -99,4 +102,51 @@ export async function generateContract(projectId: string, formData: FormData) {
 
   revalidatePath(`/admin/projects/${project.id}`);
   redirect(`/admin/contracts/${contractRow.id}`);
+}
+
+// Status changes David controls (Phase 3.3). Each is a conditional update on
+// the current status, so a double-click or a stale tab can't apply it twice,
+// and the database trigger (migration 0020) refuses any other transition.
+// Only the client's signature (/sign/[id]) can reach `completed`.
+async function transition(
+  id: string,
+  from: "draft" | "awaiting_signature",
+  to: "awaiting_signature" | "canceled",
+  event: "sent" | "canceled"
+): Promise<boolean> {
+  const db = supabaseAdmin();
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("contracts")
+    .update({ status: to, updated_at: now, ...(to === "awaiting_signature" ? { sent_at: now } : { canceled_at: now }) })
+    .eq("id", id)
+    .eq("status", from)
+    .select("id");
+  if (error) throw error;
+  if (!data || data.length === 0) return false;
+
+  const h = await headers();
+  const { error: eventError } = await db.from("contract_events").insert({
+    contract_id: id,
+    event,
+    ip: cleanHeader(h.get("cf-connecting-ip") || h.get("x-forwarded-for")?.split(",")[0], MAX_IP),
+    user_agent: cleanHeader(h.get("user-agent"), MAX_USER_AGENT),
+    detail: event === "sent" ? "Sent for signature by David" : "Canceled by David",
+  });
+  if (eventError) throw eventError;
+  return true;
+}
+
+export async function sendForSignature(id: string) {
+  await requireAdmin();
+  if (await transition(id, "draft", "awaiting_signature", "sent")) await onContractSent(id);
+  revalidatePath(`/admin/contracts/${id}`);
+  revalidatePath("/admin/contracts");
+}
+
+export async function cancelContract(id: string) {
+  await requireAdmin();
+  await transition(id, "awaiting_signature", "canceled", "canceled");
+  revalidatePath(`/admin/contracts/${id}`);
+  revalidatePath("/admin/contracts");
 }
