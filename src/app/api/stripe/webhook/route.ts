@@ -1,20 +1,74 @@
-// Stripe webhook endpoint. Fully wired in Phase 2. The ONLY thing that may mark an invoice paid.
-// It verifies the Stripe signature; never trust the browser for payment state.
+// Stripe webhook (Phase 2.3). The ONLY thing that may mark an invoice paid.
+// Every request must carry a valid Stripe signature; anything else gets a 400
+// and touches nothing. Each verified event goes to record_stripe_event()
+// (migration 0022), which writes the audit row and, for a completed payment,
+// marks the invoice paid in the same transaction, but only when the invoice
+// is sent and Stripe's amount and currency match its total exactly.
+import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
+import { supabaseAdmin } from "@/lib/supabase";
+import { paymentFromEvent } from "@/lib/payments/webhook";
 
 export const dynamic = "force-dynamic";
+
+const cryptoProvider = Stripe.createSubtleCryptoProvider();
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
   if (!sig) return NextResponse.json({ error: "missing signature" }, { status: 400 });
   const body = await req.text();
+
+  let event: Stripe.Event;
   try {
-    const event = stripe().webhooks.constructEvent(body, sig, env.stripeWebhookSecret());
-    // Phase 2: handle event.type (checkout.session.completed, etc.) and mark invoices paid.
-    return NextResponse.json({ received: true, type: event.type });
-  } catch (e) {
-    return NextResponse.json({ error: `invalid signature: ${String(e)}` }, { status: 400 });
+    event = await stripe().webhooks.constructEventAsync(
+      body,
+      sig,
+      env.stripeWebhookSecret(),
+      undefined,
+      cryptoProvider
+    );
+  } catch {
+    return NextResponse.json({ error: "invalid signature" }, { status: 400 });
   }
+
+  const db = supabaseAdmin();
+  const p = paymentFromEvent(event);
+
+  // A refund names a payment intent, not an invoice; link it to the invoice it paid.
+  let invoiceId = p.invoiceId;
+  if (!invoiceId && p.paymentIntentId) {
+    const { data } = await db
+      .from("invoices")
+      .select("id")
+      .eq("stripe_payment_intent_id", p.paymentIntentId)
+      .maybeSingle();
+    invoiceId = data?.id ?? null;
+  }
+
+  const { data: outcome, error } = await db.rpc("record_stripe_event", {
+    p_event_id: event.id,
+    p_type: event.type,
+    p_livemode: event.livemode,
+    p_invoice_id: invoiceId,
+    p_session_id: p.sessionId,
+    p_payment_intent_id: p.paymentIntentId,
+    p_amount_cents: p.amountCents,
+    p_currency: p.currency,
+    p_mark_paid: p.markPaid,
+    p_payload: event,
+  });
+  // 500 makes Stripe retry later; the event id keeps the retry idempotent.
+  if (error) {
+    console.error("stripe webhook: record_stripe_event failed", event.id, error.message);
+    return NextResponse.json({ error: "not recorded" }, { status: 500 });
+  }
+
+  if (outcome !== "paid" && outcome !== "recorded" && outcome !== "duplicate") {
+    // Money arrived for an invoice that couldn't take it. The audit row is
+    // stored; this surfaces it in the Worker logs / Sentry too.
+    console.error("stripe webhook: payment needs attention", event.id, event.type, outcome, invoiceId);
+  }
+  return NextResponse.json({ received: true });
 }
