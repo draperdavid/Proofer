@@ -18,6 +18,7 @@ import {
   updateCollectionAccess,
   updateCollectionLink,
   updateDownloadSettings,
+  updateStoreSettings,
 } from "../actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/galleries/access";
 import { accessSecret } from "@/lib/galleries/viewer-access";
@@ -122,6 +123,15 @@ export default async function CollectionDetailPage({
   const updateAccess = updateCollectionAccess.bind(null, collection.id);
   const updateLink = updateCollectionLink.bind(null, collection.id);
   const updateDownloads = updateDownloadSettings.bind(null, collection.id);
+  const updateStore = updateStoreSettings.bind(null, collection.id);
+  // Store switch (7.2). Read on its own so the page works before migration 0025.
+  const { data: storeRow, error: storeErr } = await db
+    .from("collections")
+    .select("store_enabled")
+    .eq("id", collection.id)
+    .maybeSingle();
+  const storeMigrated = !storeErr;
+  const storeEnabled = storeRow?.store_enabled === true;
   const accessSecretSet = accessSecret() !== null;
   const toggleStatus = setCollectionStatus.bind(
     null,
@@ -133,7 +143,8 @@ export default async function CollectionDetailPage({
 
   // ---- editor layout (Pixieset-style): top bar, left panel (cover + tabs), main area ----
   const tab = tabParam === "settings" || tabParam === "activity" ? tabParam : "photos";
-  const section = sectionParam === "privacy" || sectionParam === "downloads" ? sectionParam : "general";
+  const section =
+    sectionParam === "privacy" || sectionParam === "downloads" || sectionParam === "store" ? sectionParam : "general";
   const activeSet = sets.find((s) => s.id === setParam) ?? sets[0];
   const base = `/admin/galleries/${collection.id}`;
   const coverThumb = coverId ? thumbs.get(coverId) : undefined;
@@ -260,6 +271,10 @@ export default async function CollectionDetailPage({
               <Link href={`${base}?tab=settings&section=downloads`} className={`ed-set${section === "downloads" ? " on" : ""}`}>
                 <span>Downloads</span>
                 <span className="st grey">{collection.downloads_enabled === false ? "Off" : "On"}</span>
+              </Link>
+              <Link href={`${base}?tab=settings&section=store`} className={`ed-set${section === "store" ? " on" : ""}`}>
+                <span>Store</span>
+                <span className="st grey">{storeEnabled ? "On" : "Off"}</span>
               </Link>
             </div>
           )}
@@ -462,6 +477,29 @@ export default async function CollectionDetailPage({
                 </p>
               )}
               <p className="hint">Changing visibility or the password signs every visitor out.</p>
+            </div>
+          )}
+
+          {tab === "settings" && section === "store" && (
+            <div className="ed-form">
+              <h2>Store</h2>
+              {!storeMigrated && (
+                <p role="alert" className="notice">
+                  The store needs migration 0025 run in Supabase before this saves.
+                </p>
+              )}
+              <p className="hint">
+                Adds a Shop tab to this gallery with every active product from <Link href="/admin/store">Store</Link>.
+                Orders aren&apos;t recorded in Proofer yet (task 7.3); payments show in Stripe.
+              </p>
+              <form action={updateStore}>
+                <label>
+                  <input type="checkbox" name="store_enabled" defaultChecked={storeEnabled} /> Show the Shop tab to clients
+                </label>
+                <button type="submit" className="primary" style={{ marginTop: 12 }}>
+                  Save store
+                </button>
+              </form>
             </div>
           )}
 

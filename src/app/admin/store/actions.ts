@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { parsePriceCents } from "@/lib/store/catalog";
+import { deletePrefix, r2Configured } from "@/lib/r2";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -163,6 +164,8 @@ export async function deleteProduct(id: string) {
   await requireAdmin();
   const { error } = await supabaseAdmin().from("products").delete().eq("id", id);
   if (error) throw error;
+  // Its image (7.2), if any. Best effort: the product row is already gone.
+  if (r2Configured()) await deletePrefix(`products/${id}/`).catch((e) => console.error("product image cleanup failed", id, e));
 
   revalidatePath("/admin/store");
   redirect("/admin/store");

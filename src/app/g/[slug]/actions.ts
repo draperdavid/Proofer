@@ -19,6 +19,10 @@ import {
 import { SLUG_PATTERN, accessSecret, resolveGalleryAccess, resolveVisitorEmail } from "@/lib/galleries/viewer-access";
 import { VISITOR_TTL_SECONDS, normalizeEmail, signVisitorToken, visitorCookieName } from "@/lib/galleries/favorites";
 import { isUuid } from "@/lib/galleries/download";
+import { stripe } from "@/lib/stripe";
+import { env } from "@/lib/env";
+import { addLine, pricedCart, setLineQty } from "@/lib/store/cart";
+import { loadCatalog, readCart, writeCart } from "@/lib/store/gallery-store";
 
 export async function unlockGallery(slug: string, formData: FormData) {
   if (!SLUG_PATTERN.test(slug)) redirect("/");
@@ -155,4 +159,92 @@ export async function toggleFavorite(slug: string, assetId: string): Promise<Tog
   // unique_violation = a double click already added it; that's still "favorited".
   if (error && error.code !== "23505") throw error;
   return { ok: true, favorited: true };
+}
+// --------------------------------------------------------------------- store
+// Phase 7.2. Every action re-runs the full gallery access check and the
+// store switch first. The cart cookie holds ids and quantities only; checkout
+// prices every line from the database and hands Stripe those prices.
+// Recording the order is 7.3 (verified webhook only).
+
+const SHOP = "shop";
+
+async function shopGallery(slug: string) {
+  const result = await resolveGalleryAccess(slug);
+  if (!result || result.access !== "granted") redirect(SLUG_PATTERN.test(slug) ? `/g/${slug}` : "/");
+  const { data, error } = await supabaseAdmin()
+    .from("collections")
+    .select("store_enabled")
+    .eq("id", result.collection.id)
+    .single();
+  if (error) throw error;
+  if (!data?.store_enabled) redirect(`/g/${result.collection.slug}`);
+  return result.collection;
+}
+
+function item(formData: FormData): { productId: string; variantId: string | null } | null {
+  const productId = String(formData.get("product_id") ?? "");
+  const variantRaw = String(formData.get("variant_id") ?? "");
+  if (!isUuid(productId)) return null;
+  if (variantRaw && !isUuid(variantRaw)) return null;
+  return { productId: productId.toLowerCase(), variantId: variantRaw ? variantRaw.toLowerCase() : null };
+}
+
+export async function addToCart(slug: string, formData: FormData) {
+  const collection = await shopGallery(slug);
+  const back = `/g/${collection.slug}?set=${SHOP}`;
+  const it = item(formData);
+  const qty = Number(formData.get("qty") ?? 1);
+  if (!it || !(qty >= 1)) redirect(`${back}&cart=bad-item`);
+  const { products, variants } = await loadCatalog(supabaseAdmin());
+  // Only things that can actually be bought go in the cart.
+  if (pricedCart([{ ...it, qty: 1 }], products, variants).length === 0) redirect(`${back}&cart=unavailable`);
+  const ok = await writeCart(collection.id, addLine(await readCart(collection.id), it, qty));
+  redirect(ok ? `${back}&cart=added` : `${back}&cart=off`);
+}
+
+export async function setCartQty(slug: string, formData: FormData) {
+  const collection = await shopGallery(slug);
+  const back = `/g/${collection.slug}?set=${SHOP}`;
+  const it = item(formData);
+  if (!it) redirect(back);
+  await writeCart(collection.id, setLineQty(await readCart(collection.id), it, Number(formData.get("qty") ?? 0)));
+  redirect(back);
+}
+
+export async function checkoutCart(slug: string) {
+  const collection = await shopGallery(slug);
+  const back = `/g/${collection.slug}?set=${SHOP}`;
+  if (isRateLimited(`store-checkout:${collection.id}:${clientIp(await headers())}`)) redirect(`${back}&cart=limited`);
+
+  const cart = await readCart(collection.id);
+  const { products, variants } = await loadCatalog(supabaseAdmin());
+  const lines = pricedCart(cart, products, variants);
+  if (lines.length === 0) redirect(`${back}&cart=empty`);
+  // One currency per Checkout session.
+  if (new Set(lines.map((l) => l.currency)).size > 1) redirect(`${back}&cart=currency`);
+  if (lines.some((l) => l.unitCents <= 0)) redirect(`${back}&cart=unavailable`);
+
+  const base = env.appBaseUrl();
+  const session = await stripe().checkout.sessions.create({
+    mode: "payment",
+    line_items: lines.map((l) => ({
+      quantity: l.qty,
+      price_data: {
+        currency: l.currency,
+        unit_amount: l.unitCents,
+        product_data: {
+          name: l.label ? `${l.name} (${l.label})` : l.name,
+          metadata: { product_id: l.productId, variant_id: l.variantId ?? "" },
+        },
+      },
+    })),
+    ...(lines.some((l) => l.requiresShipping) ? { shipping_address_collection: { allowed_countries: ["US" as const] } } : {}),
+    metadata: { kind: "store_order", collection_id: collection.id },
+    success_url: `${base}/g/${collection.slug}/shop/paid`,
+    cancel_url: `${base}${back}`,
+  });
+  if (!session.url) throw new Error("Stripe did not return a Checkout URL");
+  // The cart stays until the order is recorded (7.3); a canceled Checkout
+  // comes back to the same cart.
+  redirect(session.url);
 }

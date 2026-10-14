@@ -489,6 +489,17 @@ export async function updateDownloadSettings(id: string, formData: FormData) {
   revalidateCollection(id);
 }
 
+// Shows or hides the gallery's Shop tab (7.2).
+export async function updateStoreSettings(id: string, formData: FormData) {
+  await requireAdmin();
+  const { error } = await supabaseAdmin()
+    .from("collections")
+    .update({ store_enabled: formData.get("store_enabled") === "on", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+  revalidateCollection(id);
+}
+
 export async function setSetDownloadable(setId: string, collectionId: string, downloadable: boolean) {
   await requireAdmin();
   const { error } = await supabaseAdmin()

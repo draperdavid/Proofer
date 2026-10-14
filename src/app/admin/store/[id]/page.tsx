@@ -14,6 +14,9 @@ import {
 import { ProductFields } from "../product-fields";
 import type { Product, ProductCategory, ProductVariant } from "../types";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
+import { presignGet, r2Configured } from "@/lib/r2";
+import { ProductImageUpload } from "../image-upload";
+import { removeProductImage } from "../image-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +41,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const updateThis = updateProduct.bind(null, product.id);
   const deleteThis = deleteProduct.bind(null, product.id);
   const addVariant = createVariant.bind(null, product.id);
+  const imageKey = (product as Product & { image_key?: string | null }).image_key ?? null;
+  const imageUrl = imageKey && r2Configured() ? await presignGet(imageKey) : null;
 
   return (
     <main>
@@ -50,6 +55,16 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         <ProductFields product={product} categories={categories} />
         <button type="submit">Save product</button>
       </form>
+
+      <h2>Image</h2>
+      <p className="hint">Shown on the Shop tab of galleries with the store turned on.</p>
+      {imageUrl && <img src={imageUrl} alt="" style={{ maxWidth: 240, display: "block", marginBottom: 8 }} />}
+      <ProductImageUpload productId={product.id} />
+      {imageKey && (
+        <form action={removeProductImage.bind(null, product.id)}>
+          <button type="submit">Remove image</button>
+        </form>
+      )}
 
       <h2>Variants</h2>
       <p className="hint">

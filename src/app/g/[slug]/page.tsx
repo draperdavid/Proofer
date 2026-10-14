@@ -9,7 +9,10 @@ import { presignGet, r2Configured } from "@/lib/r2";
 import { resolveGalleryAccess, resolveVisitorEmail } from "@/lib/galleries/viewer-access";
 import { GRID_SIZE, LIGHTBOX_SIZE, displayKey } from "@/lib/galleries/variants";
 import { CLAIM_REFUSALS, isClaimRefusal, remainingDownloads } from "@/lib/galleries/download";
-import { clearFavoritesEmail, setFavoritesEmail, toggleFavorite, unlockGallery } from "./actions";
+import { addToCart, checkoutCart, clearFavoritesEmail, setCartQty, setFavoritesEmail, toggleFavorite, unlockGallery } from "./actions";
+import { Shop } from "./shop";
+import { pricedCart } from "@/lib/store/cart";
+import { loadCatalog, readCart } from "@/lib/store/gallery-store";
 import { GalleryGrid, type GridPhoto } from "./gallery-grid";
 
 export const dynamic = "force-dynamic";
@@ -29,16 +32,17 @@ const FAV_ERRORS: Record<string, string> = {
 const DOWNLOAD_NOT_READY = "This photo isn't ready to download yet. Try again in a few minutes.";
 
 const FAVORITES_TAB = "favorites";
+const SHOP_TAB = "shop";
 
 export default async function GalleryPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string; set?: string; fav?: string; dl?: string }>;
+  searchParams: Promise<{ error?: string; set?: string; fav?: string; dl?: string; cart?: string }>;
 }) {
   const { slug } = await params;
-  const { error, set: setParam, fav, dl } = await searchParams;
+  const { error, set: setParam, fav, dl, cart: cartMessage } = await searchParams;
 
   const result = await resolveGalleryAccess(slug);
   if (!result) notFound();
@@ -125,10 +129,18 @@ export default async function GalleryPage({
   const needsEmailToDownload = downloadsOn && personLimit !== null && !visitorEmail;
   const dlMessage = dl === "not_ready" ? DOWNLOAD_NOT_READY : dl && isClaimRefusal(dl) ? CLAIM_REFUSALS[dl] : null;
 
+  // Store (7.2): a Shop tab when David has turned the store on. Read on its
+  // own so the gallery still works before migration 0025 adds the column.
+  const { data: storeRow } = await db.from("collections").select("store_enabled").eq("id", collection.id).maybeSingle();
+  const storeOn = storeRow?.store_enabled === true;
+  const showShop = storeOn && setParam === SHOP_TAB;
+
   const showFavorites = setParam === FAVORITES_TAB && visitorEmail !== null;
   const activeSet = showFavorites ? undefined : (sets.find((s) => s.id === setParam) ?? sets[0]);
-  const activeTab = showFavorites ? FAVORITES_TAB : (activeSet?.id ?? "");
-  const setAssets = showFavorites
+  const activeTab = showShop ? SHOP_TAB : showFavorites ? FAVORITES_TAB : (activeSet?.id ?? "");
+  const setAssets = showShop
+    ? []
+    : showFavorites
     ? assets.filter((a) => favoriteIds.has(a.id))
     : activeSet
       ? assets.filter((a) => a.set_id === activeSet.id)
@@ -153,7 +165,28 @@ export default async function GalleryPage({
     );
   }
 
-  const saveEmail = setFavoritesEmail.bind(null, collection.slug, activeTab);
+  let shop: React.ReactNode = null;
+  if (showShop) {
+    const { products, variants } = await loadCatalog(db);
+    const imageUrls = new Map<string, string>();
+    if (r2Configured()) {
+      for (const p of products) if (p.image_key) imageUrls.set(p.id, await presignGet(p.image_key));
+    }
+    shop = (
+      <Shop
+        products={products}
+        variants={variants}
+        imageUrls={imageUrls}
+        lines={pricedCart(await readCart(collection.id), products, variants)}
+        message={cartMessage}
+        addToCart={addToCart.bind(null, collection.slug)}
+        setCartQty={setCartQty.bind(null, collection.slug)}
+        checkout={checkoutCart.bind(null, collection.slug)}
+      />
+    );
+  }
+
+  const saveEmail = setFavoritesEmail.bind(null, collection.slug, activeTab === SHOP_TAB ? "" : activeTab);
   const forgetEmail = clearFavoritesEmail.bind(null, collection.slug);
   const toggle = toggleFavorite.bind(null, collection.slug);
 
@@ -202,7 +235,7 @@ export default async function GalleryPage({
         </p>
       )}
 
-      {(sets.length > 1 || visitorEmail) && (
+      {(sets.length > 1 || visitorEmail || storeOn) && (
         <nav aria-label="Sets" className="settabs">
           {sets.map((set) =>
             set.id === activeTab ? (
@@ -221,9 +254,17 @@ export default async function GalleryPage({
             ) : (
               <Link href={`/g/${collection.slug}?set=${FAVORITES_TAB}`}>Favorites ({favoriteIds.size})</Link>
             ))}
+          {storeOn &&
+            (showShop ? (
+              <strong aria-current="page">Shop</strong>
+            ) : (
+              <Link href={`/g/${collection.slug}?set=${SHOP_TAB}`}>Shop</Link>
+            ))}
         </nav>
       )}
-      {setAssets.length > 0 && !r2Configured() ? (
+      {showShop ? (
+        shop
+      ) : setAssets.length > 0 && !r2Configured() ? (
         <p>Photos aren&apos;t available right now. Please try again later.</p>
       ) : (
         <GalleryGrid
