@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
 import { generateSlots, type SlotWindow } from "@/lib/booking/slots";
+import { busyFromBookings } from "@/lib/booking/book";
+import { loadLiveBookings } from "@/lib/booking/load";
 import type { SessionType } from "../session-types/types";
 import { createWindow, deleteWindow } from "./actions";
 
@@ -32,11 +34,15 @@ export default async function AvailabilityPage() {
   const sessionTypes = (typesRes.data ?? []) as SessionType[];
   const typeName = new Map(sessionTypes.map((s) => [s.id, s.name]));
 
-  // Preview renders in the business timezone (the first window's); there are
-  // no bookings yet (4.4), so nothing is busy.
+  // Preview renders in the business timezone (the first window's), with
+  // confirmed bookings and live holds (4.4) blocking their time.
   const displayZone = windows[0]?.timezone;
   const now = new Date();
   const range = { start: now, end: new Date(now.getTime() + PREVIEW_DAYS * 24 * 60 * 60 * 1000) };
+  const DAY = 24 * 60 * 60 * 1000;
+  const busy = busyFromBookings(
+    await loadLiveBookings(db, new Date(range.start.getTime() - DAY), new Date(range.end.getTime() + DAY))
+  );
   const fmt = displayZone
     ? new Intl.DateTimeFormat("en-US", {
         timeZone: displayZone,
@@ -123,7 +129,7 @@ export default async function AvailabilityPage() {
       {sessionTypes
         .filter((s) => s.active)
         .map((s) => {
-          const slots = generateSlots(s, windows, [], range, now);
+          const slots = generateSlots(s, windows, busy, range, now);
           return (
             <section key={s.id}>
               <h3>

@@ -44,6 +44,7 @@ test("bookings and the store live under More", () => {
   assert.equal(activeKey("/admin/session-types"), "more");
   assert.equal(activeKey("/admin/session-types/s1"), "more");
   assert.equal(activeKey("/admin/availability"), "more");
+  assert.equal(activeKey("/admin/bookings"), "more");
   assert.equal(activeKey("/admin/store"), "more");
   assert.equal(activeKey("/admin/store/p1"), "more");
   assert.equal(activeKey("/admin/settings"), "more");

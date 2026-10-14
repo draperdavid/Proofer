@@ -55,6 +55,7 @@ export const MORE_GROUPS: MoreGroup[] = [
   {
     label: "Bookings",
     links: [
+      { href: "/admin/bookings", name: "Bookings", on: under("/admin/bookings") },
       { href: "/admin/session-types", name: "Session types", on: under("/admin/session-types") },
       { href: "/admin/availability", name: "Availability", on: under("/admin/availability") },
     ],

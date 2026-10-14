@@ -32,6 +32,7 @@ export const idempotencyKeys = {
   contractSignedNotice: (contractId: string) => `contract_signed_notice:${contractId}`,
   // One receipt per Stripe event, so a redelivered webhook never re-sends.
   paymentReceipt: (stripeEventId: string) => `payment_receipt:${stripeEventId}`,
+  bookingConfirmed: (bookingId: string) => `booking_confirmation:${bookingId}`,
 };
 
 // "$1,234.50" from integer cents.

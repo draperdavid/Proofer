@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { env } from "@/lib/env";
 import { ADMIN_EMAILS } from "@/lib/auth/admins";
 import { businessTodayISO } from "@/lib/dates";
+import { formatSessionWhen } from "@/lib/booking/book";
 import { sendTemplatedEmail } from "./send";
 import { isStageTemplate, isTemplateKey } from "./templates";
 import { absoluteUrl, formatCents, formatDate, idempotencyKeys, projectFields } from "./events";
@@ -146,6 +147,37 @@ export async function onPaymentReceived(stripeEventId: string, invoiceId: string
       contactId: contact.id,
       projectId: (invoice.project_id as string | null) ?? null,
       idempotencyKey: idempotencyKeys.paymentReceipt(stripeEventId),
+    });
+  });
+}
+
+// An online booking was paid for and confirmed (4.4).
+export async function onBookingConfirmed(bookingId: string) {
+  await safely(`booking ${bookingId}`, async () => {
+    const { data: b, error } = await supabaseAdmin()
+      .from("bookings")
+      .select("id, contact_id, project_id, starts_at, timezone, status, session_types(name), projects(title, location)")
+      .eq("id", bookingId)
+      .single();
+    if (error || !b) throw error ?? new Error("Booking not found");
+    if (b.status !== "confirmed") return;
+    const contact = await loadContact(b.contact_id as string | null);
+    if (!contact) return;
+    const type = b.session_types as unknown as { name: string } | null;
+    const project = b.projects as unknown as { title: string | null; location: string | null } | null;
+
+    await sendTemplatedEmail({
+      key: "booking_confirmation",
+      to: contact.email ?? "",
+      fields: {
+        ...projectFields(contact.name, project?.title ?? null),
+        "session.name": type?.name ?? "your session",
+        "session.when": formatSessionWhen(new Date(b.starts_at as string), b.timezone as string),
+        "session.location": project?.location ?? "",
+      },
+      contactId: contact.id,
+      projectId: (b.project_id as string | null) ?? null,
+      idempotencyKey: idempotencyKeys.bookingConfirmed(b.id as string),
     });
   });
 }

@@ -16,6 +16,7 @@ import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import type { Invoice, InvoiceInstallment } from "@/app/admin/invoices/types";
 import { isMissingTable } from "@/lib/db-errors";
+import { CHECKOUT_EXPIRY_MINUTES, HOLD_PAST_CHECKOUT_MINUTES } from "@/lib/booking/hold";
 
 export async function createCheckoutSession(invoiceId: string) {
   const db = supabaseAdmin();
@@ -33,6 +34,28 @@ export async function createCheckoutSession(invoiceId: string) {
   }
   if (invoice.total_cents <= 0) {
     throw new Error("Invoice total must be greater than zero");
+  }
+
+  // An online booking's first payment pays for a held time (4.4). Extend the
+  // hold past this Checkout session's expiry, or send the client back to
+  // pick a time if the hold is gone. Card only, so no payment can land days
+  // later on a time someone else has since booked.
+  const { data: booking, error: bookingError } = await db
+    .from("bookings")
+    .select("id, status")
+    .eq("invoice_id", invoice.id)
+    .maybeSingle();
+  if (bookingError && !isMissingTable(bookingError)) throw bookingError;
+  if (booking?.status === "canceled") redirect(`/pay/${invoice.id}?error=booking_canceled`);
+  const holding = booking?.status === "pending_payment";
+  if (holding) {
+    const until = new Date(Date.now() + (CHECKOUT_EXPIRY_MINUTES + HOLD_PAST_CHECKOUT_MINUTES) * 60_000);
+    const { data: kept, error: holdError } = await db.rpc("extend_booking_hold", {
+      p_booking_id: booking.id,
+      p_hold_until: until.toISOString(),
+    });
+    if (holdError) throw holdError;
+    if (!kept) redirect(`/pay/${invoice.id}?error=hold_expired`);
   }
 
   // With a payment schedule (2.4) the client pays the earliest unpaid
@@ -62,6 +85,12 @@ export async function createCheckoutSession(invoiceId: string) {
         quantity: 1,
       },
     ],
+    ...(holding
+      ? {
+          payment_method_types: ["card" as const],
+          expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRY_MINUTES * 60,
+        }
+      : {}),
     client_reference_id: invoice.id,
     metadata: next ? { invoice_id: invoice.id, installment_id: next.id } : { invoice_id: invoice.id },
     success_url: `${baseUrl}/pay/${invoice.id}/success`,

@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { formatCents } from "@/app/admin/invoices/money";
 import type { Invoice, InvoiceInstallment, InvoiceLineItem } from "@/app/admin/invoices/types";
 import { formatDay } from "@/lib/dates";
+import { formatSessionWhen } from "@/lib/booking/book";
 import { createCheckoutSession } from "./actions";
 import { isMissingTable } from "@/lib/db-errors";
 
@@ -14,8 +15,20 @@ export const dynamic = "force-dynamic";
 
 type InvoiceWithProject = Invoice & { projects: { title: string } | null };
 
-export default async function PayInvoicePage({ params }: { params: Promise<{ id: string }> }) {
+const PAY_ERRORS: Record<string, string> = {
+  hold_expired: "Sorry, the time you picked is no longer held for you. Please book again and pick a time.",
+  booking_canceled: "This booking was canceled.",
+};
+
+export default async function PayInvoicePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
+  const { error: errorKey } = await searchParams;
 
   const db = supabaseAdmin();
   const [{ data, error }, { data: items, error: itemsError }, { data: scheduleRows, error: scheduleError }] =
@@ -29,6 +42,18 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
   // Missing table = migration 0023 not run here yet: no schedules exist.
   if (scheduleError && !isMissingTable(scheduleError)) throw scheduleError;
   const installments = (scheduleRows ?? []) as InvoiceInstallment[];
+
+  // Online booking behind this invoice, if any (4.4).
+  const { data: booking, error: bookingError } = await db
+    .from("bookings")
+    .select("status, starts_at, timezone, hold_expires_at, session_types(name, slug)")
+    .eq("invoice_id", id)
+    .maybeSingle();
+  if (bookingError && !isMissingTable(bookingError)) throw bookingError;
+  const bookingType = booking?.session_types as unknown as { name: string; slug: string } | null;
+  const holdLapsed =
+    booking?.status === "pending_payment" && new Date(booking.hold_expires_at as string).getTime() <= Date.now();
+  const bookingBlocksPay = booking?.status === "canceled" || holdLapsed;
   const next = installments.find((i) => i.status === "unpaid") ?? null;
 
   const invoice = data as unknown as InvoiceWithProject;
@@ -38,6 +63,19 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
   return (
     <main>
       <h1>{invoice.projects?.title ?? "Invoice"}</h1>
+      {errorKey && PAY_ERRORS[errorKey] && <p className="err">{PAY_ERRORS[errorKey]}</p>}
+      {booking && bookingType && (
+        <p>
+          {bookingType.name}: <strong>{formatSessionWhen(new Date(booking.starts_at as string), booking.timezone as string)}</strong>
+          {booking.status === "confirmed" && " (booked)"}
+          {booking.status === "pending_payment" && !holdLapsed && ". This time is held for you while you pay."}
+        </p>
+      )}
+      {holdLapsed && bookingType && (
+        <p className="err">
+          The hold on this time has run out. <a href={`/book/${bookingType.slug}`}>Pick a time again</a>.
+        </p>
+      )}
 
       <table>
         <thead>
@@ -114,7 +152,7 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
       {invoice.status === "paid" && <p>This invoice has already been paid. Thank you.</p>}
       {invoice.status === "void" && <p>This invoice has been voided.</p>}
       {invoice.status === "draft" && <p>This invoice isn&apos;t ready to be paid yet.</p>}
-      {invoice.status === "sent" && (
+      {invoice.status === "sent" && !bookingBlocksPay && (
         <form action={payNow}>
           <button type="submit">
             {next ? `Pay ${next.label.toLowerCase()}: ${formatCents(next.amount_cents, invoice.currency)}` : "Pay now"}

@@ -11,6 +11,7 @@ import { env } from "@/lib/env";
 import { supabaseAdmin } from "@/lib/supabase";
 import { paymentFromEvent } from "@/lib/payments/webhook";
 import { onPaymentReceived } from "@/lib/email/triggers";
+import { onBookingPaid } from "@/lib/booking/confirm";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,8 @@ export async function POST(req: Request) {
   // Receipt (2.5). Never throws; keyed on the event id so it goes out once.
   if ((outcome === "paid" || outcome === "installment_paid") && invoiceId && p.amountCents !== null) {
     await onPaymentReceived(event.id, invoiceId, p.amountCents);
+    // Online booking (4.4): follow-up runs once, after the first payment.
+    await onBookingPaid(invoiceId);
   }
   return NextResponse.json({ received: true });
 }
