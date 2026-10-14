@@ -54,7 +54,7 @@ export default async function BookSessionPage({
   const timeLabel = (d: Date) =>
     new Intl.DateTimeFormat("en-US", { timeZone: timeZone ?? "UTC", hour: "numeric", minute: "2-digit" }).format(d);
   const zoneLabel = timeZone
-    ? new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "long" })
+    ? new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" })
         .formatToParts(now)
         .find((p) => p.type === "timeZoneName")?.value
     : null;
