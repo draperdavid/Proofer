@@ -551,3 +551,7 @@ button:focus-visible, .btn:focus-visible, a:focus-visible { outline: none; box-s
 .kbody { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .kbody a { font-weight: 650; }
 .kclient { color: var(--t2); font-size: 13px; }
+/* "+ New" in the top bar: the one filled button in the shell. */
+.newmenu { flex: none; }
+.newmenu > summary.btn { padding: 6px 14px; }
+.newmenu .menu-pop { right: 0; min-width: 210px; }

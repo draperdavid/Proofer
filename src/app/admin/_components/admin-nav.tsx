@@ -80,6 +80,16 @@ export function AdminShell({ email, signOut, children }: { email: string; signOu
           <input type="search" name="q" placeholder="Search contacts, projects, galleries" aria-label="Search" />
         </form>
 
+        <details className="menu newmenu">
+          <summary className="btn primary">+ New</summary>
+          <div className="menu-pop">
+            <Link href="/admin/contacts/new">Contact</Link>
+            <Link href="/admin/contacts">Project (pick the client)</Link>
+            <Link href="/admin/galleries/new">Gallery</Link>
+            <Link href="/admin/session-types/new">Session type</Link>
+          </div>
+        </details>
+
         <details className="menu acct">
           <summary className="acct-btn" aria-label="Account">
             {initial}
