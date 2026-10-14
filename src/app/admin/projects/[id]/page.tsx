@@ -7,8 +7,9 @@ import type { Project, ProjectStage } from "../types";
 import { formatCents } from "../../invoices/money";
 import type { Invoice } from "../../invoices/types";
 import { summarizeProjectMoney, type SummaryInstallment } from "@/lib/payments/summary";
-import { businessTodayISO } from "@/lib/dates";
+import { businessTodayISO, formatDateTime, formatDay } from "@/lib/dates";
 import { isMissingTable } from "@/lib/db-errors";
+import { attentionItems } from "@/lib/projects/attention";
 import { generateContract } from "../../contracts/actions";
 import type { Contract, ContractTemplate } from "../../contracts/types";
 import { sendQuestionnaire } from "../../questionnaires/actions";
@@ -18,13 +19,28 @@ import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
 export const dynamic = "force-dynamic";
 
-type ProjectWithContact = Project & { contacts: { id: string; name: string } | null };
+// The project workspace (2026-10-14 restyle, C2): a sticky summary column
+// (client, date, money, what's next, edit details) beside one scrolling
+// column of sections. Status pills follow the color key in
+// src/lib/projects/attention.ts.
 
-export default async function ProjectDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+type ProjectWithContact = Project & { contacts: { id: string; name: string; email: string | null } | null };
+type Tone = "red" | "amber" | "blue" | "green" | "grey";
+
+const contractPill: Record<string, [Tone, string]> = {
+  draft: ["blue", "Draft"],
+  awaiting_signature: ["amber", "Awaiting signature"],
+  in_progress: ["amber", "Signing"],
+  completed: ["green", "Signed"],
+  canceled: ["grey", "Canceled"],
+};
+const quotePill: Record<string, [Tone, string]> = { draft: ["blue", "Draft"], sent: ["amber", "Sent"], accepted: ["green", "Accepted"] };
+
+function Pill({ tone, label }: { tone: Tone; label: string }) {
+  return <span className={`st ${tone}`}>{label}</span>;
+}
+
+export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const db = supabaseAdmin();
@@ -40,7 +56,7 @@ export default async function ProjectDetailPage({
     { data: galleries, error: galleriesError },
     { data: emails, error: emailsError },
   ] = await Promise.all([
-    db.from("projects").select("*, contacts(id, name)").eq("id", id).single(),
+    db.from("projects").select("*, contacts(id, name, email)").eq("id", id).single(),
     db.from("project_stages").select("*").order("position", { ascending: true }),
     db.from("invoices").select("*").eq("project_id", id).order("created_at", { ascending: false }),
     db.from("contracts").select("*").eq("project_id", id).order("created_at", { ascending: false }),
@@ -48,11 +64,7 @@ export default async function ProjectDetailPage({
     db.from("questionnaires").select("*").eq("project_id", id).order("created_at", { ascending: false }),
     db.from("questionnaire_templates").select("*").order("name", { ascending: true }),
     db.from("quotes").select("*").eq("project_id", id).order("created_at", { ascending: false }),
-    db
-      .from("collections")
-      .select("id, name, status, visibility")
-      .eq("project_id", id)
-      .order("created_at", { ascending: false }),
+    db.from("collections").select("id, name, status, visibility").eq("project_id", id).order("created_at", { ascending: false }),
     db
       .from("email_log")
       .select("id, subject, to_email, status, error, created_at")
@@ -69,169 +81,308 @@ export default async function ProjectDetailPage({
   if (questionnaireTemplatesError) throw questionnaireTemplatesError;
   if (quotesError) throw quotesError;
   if (galleriesError) throw galleriesError;
-  // Email history is a side panel: if its table isn't migrated yet, say so
+  // Email history is a side section: if its table isn't migrated yet, say so
   // instead of taking the whole project page down.
 
+  const project = data as ProjectWithContact;
+  const invoiceRows = (invoices ?? []) as Invoice[];
+  const contractRows = (contracts ?? []) as (Contract & { sent_at: string | null })[];
+  const questionnaireRows = (questionnaires ?? []) as Questionnaire[];
+  const quoteRows = (quotes ?? []) as Quote[];
+  const stageList = (stages ?? []) as ProjectStage[];
+  const stage = stageList.find((s) => s.id === project.stage_id);
+
   // Payment summary (2.5). Schedules live in invoice_installments (2.4).
-  const invoiceIds = ((invoices ?? []) as Invoice[]).map((i) => i.id);
   let installments: SummaryInstallment[] = [];
-  if (invoiceIds.length > 0) {
+  if (invoiceRows.length > 0) {
     const { data: rows, error: instError } = await db
       .from("invoice_installments")
       .select("invoice_id, amount_cents, due_date, status")
-      .in("invoice_id", invoiceIds);
+      .in("invoice_id", invoiceRows.map((i) => i.id));
     if (instError && !isMissingTable(instError)) throw instError;
     installments = (rows ?? []) as SummaryInstallment[];
   }
-  const money = summarizeProjectMoney((invoices ?? []) as Invoice[], installments, businessTodayISO());
+  const today = businessTodayISO();
+  const money = summarizeProjectMoney(invoiceRows, installments, today);
+  const attention = attentionItems({
+    projects: [project],
+    invoices: invoiceRows,
+    installments,
+    contracts: contractRows,
+    questionnaires: questionnaireRows,
+    firstStageId: stageList[0]?.id ?? null,
+    today,
+  }).filter((i) => i.split !== "week");
+  const lateInvoices = new Set(attention.filter((i) => i.label === "Overdue").map((i) => i.href.split("/").pop()));
+  const invoicePill = (inv: Invoice): [Tone, string] =>
+    inv.status === "paid" ? ["green", "Paid"] : inv.status === "void" ? ["grey", "Void"] : inv.status === "draft" ? ["blue", "Draft"] : lateInvoices.has(inv.id) ? ["red", "Overdue"] : ["blue", "Unpaid"];
 
-  const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
   const deleteThisProject = deleteProject.bind(null, project.id, project.contact_id);
   const generateThisContract = generateContract.bind(null, project.id);
   const sendThisQuestionnaire = sendQuestionnaire.bind(null, project.id);
 
   return (
-    <main>
-      <h1>Edit project</h1>
-      <p>
-        {project.contacts ? (
-          <Link className="back" href={`/admin/contacts/${project.contacts.id}`}>← Back to {project.contacts.name}</Link>
-        ) : (
-          <Link className="back" href="/admin/contacts">← Back to contacts</Link>
-        )}
-      </p>
-      <form action={updateThisProject}>
-        <ProjectFields project={project} stages={(stages ?? []) as ProjectStage[]} />
-        <button type="submit">Save changes</button>
-      </form>
-      <form action={deleteThisProject}>
-        <ConfirmButton message="Delete this project? This can't be undone.">Delete project</ConfirmButton>
-      </form>
+    <main className="fluid workspace">
+      <Link className="back" href="/admin">
+        ← Projects
+      </Link>
+      <header className="ws-head">
+        <h1>{project.title}</h1>
+        <div className="ws-meta">
+          {stage && <span className="st stage">{stage.name}</span>}
+          {project.event_date && <span>{formatDay(project.event_date)}</span>}
+          {project.location && <span>{project.location}</span>}
+          {project.type && <span>{project.type}</span>}
+        </div>
+      </header>
 
-      <h2>Invoices</h2>
-      {invoiceIds.length > 0 && (
-        <p>
-          Paid <strong>{formatCents(money.paidCents)}</strong> · Upcoming <strong>{formatCents(money.upcomingCents)}</strong>
-          {" · "}
-          <span className={money.pastDueCents > 0 ? "err" : undefined}>
-            Past due <strong>{formatCents(money.pastDueCents)}</strong>
-          </span>
-        </p>
-      )}
-      <p>
-        <Link href={`/admin/invoices/new?project_id=${project.id}`}>+ New invoice</Link>
-      </p>
-      <ul>
-        {((invoices ?? []) as Invoice[]).map((inv) => (
-          <li key={inv.id}>
-            <Link href={`/admin/invoices/${inv.id}`}>{formatCents(inv.total_cents, inv.currency)}</Link>
-            {" — "}
-            {inv.status}
-          </li>
-        ))}
-        {(!invoices || invoices.length === 0) && <li>No invoices yet.</li>}
-      </ul>
+      <div className="ws">
+        <aside className="ws-side" aria-label="Summary">
+          <dl className="ws-facts">
+            <div>
+              <dt>Client</dt>
+              <dd>
+                {project.contacts ? <Link href={`/admin/contacts/${project.contacts.id}`}>{project.contacts.name}</Link> : "No client linked"}
+                {project.contacts?.email && <span className="sub">{project.contacts.email}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt>Session</dt>
+              <dd>{project.event_date ? formatDay(project.event_date) : "Date TBD"}</dd>
+            </div>
+            <div>
+              <dt>Paid</dt>
+              <dd className="num">{formatCents(money.paidCents)}</dd>
+            </div>
+            <div>
+              <dt>Upcoming</dt>
+              <dd className="num">{formatCents(money.upcomingCents)}</dd>
+            </div>
+            <div>
+              <dt>Past due</dt>
+              <dd className={`num${money.pastDueCents > 0 ? " late" : ""}`}>{formatCents(money.pastDueCents)}</dd>
+            </div>
+          </dl>
+          {attention[0] && (
+            <div className="ws-next">
+              <span className="lbl">Next up</span>
+              <span>
+                <Pill tone={attention[0].tone} label={attention[0].label} /> {attention[0].detail}
+              </span>
+              <Link href={attention[0].href} className="btn primary">
+                {attention[0].action}
+              </Link>
+            </div>
+          )}
+          <details className="ws-edit">
+            <summary className="btn">Edit details</summary>
+            <form action={updateThisProject}>
+              <ProjectFields project={project} stages={stageList} />
+              <button type="submit" className="primary">
+                Save changes
+              </button>
+            </form>
+            <form action={deleteThisProject}>
+              <ConfirmButton message="Delete this project? This can't be undone.">Delete project</ConfirmButton>
+            </form>
+          </details>
+        </aside>
 
-      <h2>Quotes</h2>
-      <p>
-        <Link href={`/admin/quotes/new?project_id=${project.id}`}>+ New quote</Link>
-      </p>
-      <ul>
-        {((quotes ?? []) as Quote[]).map((q) => (
-          <li key={q.id}>
-            <Link href={`/admin/quotes/${q.id}`}>{q.title}</Link>
-            {" — "}
-            {q.status}
-          </li>
-        ))}
-        {(!quotes || quotes.length === 0) && <li>No quotes yet.</li>}
-      </ul>
+        <div className="ws-main">
+          <nav className="ws-jump" aria-label="Sections">
+            <a href="#attention">Overview</a>
+            <a href="#money">Money</a>
+            <a href="#documents">Documents</a>
+            <a href="#gallery">Gallery</a>
+            <a href="#emails">Emails</a>
+            {project.description && <a href="#notes">Notes</a>}
+          </nav>
 
-      <h2>Galleries</h2>
-      <p>
-        <Link href={`/admin/galleries/new?project_id=${project.id}`}>+ New gallery</Link>
-      </p>
-      <ul>
-        {(galleries ?? []).map((g) => (
-          <li key={g.id}>
-            <Link href={`/admin/galleries/${g.id}`}>{g.name}</Link>
-            {" — "}
-            {g.status === "published" ? `published, ${g.visibility}` : "draft"}
-          </li>
-        ))}
-        {(!galleries || galleries.length === 0) && <li>No galleries yet.</li>}
-      </ul>
+          <section id="attention" className="ws-sec">
+            <h3>Needs attention</h3>
+            {attention.length === 0 ? (
+              <p className="muted">All caught up on this project.</p>
+            ) : (
+              <ul className="ws-rows">
+                {attention.map((it) => (
+                  <li key={it.key}>
+                    <Pill tone={it.tone} label={it.label} />
+                    <span className="grow">{it.detail}</span>
+                    <span className="muted small">{it.when}</span>
+                    <Link href={it.href} className="btn sm">
+                      {it.action}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <h2>Contracts</h2>
-      <ul>
-        {((contracts ?? []) as Contract[]).map((c) => (
-          <li key={c.id}>
-            <Link href={`/admin/contracts/${c.id}`}>{c.status}</Link>
-          </li>
-        ))}
-        {(!contracts || contracts.length === 0) && <li>No contracts yet.</li>}
-      </ul>
-      {project.contacts && (
-        <form action={generateThisContract}>
-          <label htmlFor="template_id">Generate contract from template</label>
-          <select id="template_id" name="template_id" required>
-            {((templates ?? []) as ContractTemplate[]).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit">Generate</button>
-        </form>
-      )}
-      {!project.contacts && <p>Link a contact to this project before generating a contract.</p>}
-      <p>
-        <Link href="/admin/contracts/templates">Manage contract templates</Link>
-      </p>
+          <section id="money" className="ws-sec">
+            <div className="ws-sechead">
+              <h3>Money</h3>
+              <Link href={`/admin/invoices/new?project_id=${project.id}`} className="btn sm">
+                + New invoice
+              </Link>
+            </div>
+            {invoiceRows.length === 0 ? (
+              <p className="muted">No invoices yet.</p>
+            ) : (
+              <ul className="ws-rows">
+                {invoiceRows.map((inv) => {
+                  const [tone, label] = invoicePill(inv);
+                  return (
+                    <li key={inv.id}>
+                      <Pill tone={tone} label={label} />
+                      <Link href={`/admin/invoices/${inv.id}`} className="grow">
+                        Invoice · {formatCents(inv.total_cents, inv.currency)}
+                      </Link>
+                      <span className="muted small">{inv.due_date ? `Due ${formatDay(inv.due_date)}` : "Due on receipt"}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </section>
 
-      <h2>Questionnaires</h2>
-      <ul>
-        {((questionnaires ?? []) as Questionnaire[]).map((q) => (
-          <li key={q.id}>
-            <Link href={`/admin/questionnaires/${q.id}`}>{q.submitted_at ? "Submitted" : "Awaiting response"}</Link>
-          </li>
-        ))}
-        {(!questionnaires || questionnaires.length === 0) && <li>No questionnaires sent yet.</li>}
-      </ul>
-      {project.contacts && (
-        <form action={sendThisQuestionnaire}>
-          <label htmlFor="questionnaire_template_id">Send questionnaire from template</label>
-          <select id="questionnaire_template_id" name="template_id" required>
-            {((questionnaireTemplates ?? []) as QuestionnaireTemplate[]).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <button type="submit">Send</button>
-        </form>
-      )}
-      {!project.contacts && <p>Link a contact to this project before sending a questionnaire.</p>}
-      <p>
-        <Link href="/admin/questionnaires/templates">Manage questionnaire templates</Link>
-      </p>
+          <section id="documents" className="ws-sec">
+            <div className="ws-sechead">
+              <h3>Documents</h3>
+              <Link href={`/admin/quotes/new?project_id=${project.id}`} className="btn sm">
+                + New quote
+              </Link>
+            </div>
+            {contractRows.length + questionnaireRows.length + quoteRows.length === 0 ? (
+              <p className="muted">No contracts, questionnaires or quotes yet.</p>
+            ) : (
+              <ul className="ws-rows">
+                {contractRows.map((c) => {
+                  const [tone, label] = contractPill[c.status] ?? ["grey", c.status];
+                  return (
+                    <li key={c.id}>
+                      <Pill tone={tone} label={label} />
+                      <Link href={`/admin/contracts/${c.id}`} className="grow">
+                        Contract
+                      </Link>
+                      <span className="muted small">{formatDay(c.created_at.slice(0, 10))}</span>
+                    </li>
+                  );
+                })}
+                {questionnaireRows.map((q) => (
+                  <li key={q.id}>
+                    <Pill tone={q.submitted_at ? "green" : "amber"} label={q.submitted_at ? "Submitted" : "Awaiting response"} />
+                    <Link href={`/admin/questionnaires/${q.id}`} className="grow">
+                      Questionnaire
+                    </Link>
+                    <span className="muted small">{formatDay(q.created_at.slice(0, 10))}</span>
+                  </li>
+                ))}
+                {quoteRows.map((q) => {
+                  const [tone, label] = quotePill[q.status] ?? ["grey", q.status];
+                  return (
+                    <li key={q.id}>
+                      <Pill tone={tone} label={label} />
+                      <Link href={`/admin/quotes/${q.id}`} className="grow">
+                        {q.title}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {project.contacts ? (
+              <div className="ws-tools">
+                <form action={generateThisContract}>
+                  <label htmlFor="template_id">Contract from template</label>
+                  <select id="template_id" name="template_id" required>
+                    {((templates ?? []) as ContractTemplate[]).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit">Generate</button>
+                </form>
+                <form action={sendThisQuestionnaire}>
+                  <label htmlFor="questionnaire_template_id">Questionnaire from template</label>
+                  <select id="questionnaire_template_id" name="template_id" required>
+                    {((questionnaireTemplates ?? []) as QuestionnaireTemplate[]).map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="submit">Send</button>
+                </form>
+              </div>
+            ) : (
+              <p className="muted">Link a client to this project before sending a contract or questionnaire.</p>
+            )}
+          </section>
 
-      <h2>Emails</h2>
-      <ul>
-        {emailsError && <li>Email history isn&apos;t available yet (run the email migrations).</li>}
-        {!emailsError && (emails ?? []).length === 0 && <li>No emails yet.</li>}
-        {(emails ?? []).map((e) => (
-          <li key={e.id as string}>
-            {new Date(e.created_at as string).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} ·{" "}
-            {e.subject as string} · to {e.to_email as string} · {e.status as string}
-            {e.error && e.status !== "sent" ? `: ${e.error as string}` : ""}
-          </li>
-        ))}
-      </ul>
-      <p>
-        <Link href="/admin/emails/log">All emails</Link>
-      </p>
+          <section id="gallery" className="ws-sec">
+            <div className="ws-sechead">
+              <h3>Gallery</h3>
+              <Link href={`/admin/galleries/new?project_id=${project.id}`} className="btn sm">
+                + New gallery
+              </Link>
+            </div>
+            {(galleries ?? []).length === 0 ? (
+              <p className="muted">No gallery yet.</p>
+            ) : (
+              <ul className="ws-rows">
+                {(galleries ?? []).map((g) => (
+                  <li key={g.id}>
+                    <Pill tone={g.status === "published" ? "green" : "blue"} label={g.status === "published" ? "Published" : "Draft"} />
+                    <Link href={`/admin/galleries/${g.id}`} className="grow">
+                      {g.name}
+                    </Link>
+                    <span className="muted small">{g.status === "published" ? g.visibility : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section id="emails" className="ws-sec">
+            <div className="ws-sechead">
+              <h3>Emails</h3>
+              <Link href="/admin/emails/log" className="btn quiet">
+                All emails
+              </Link>
+            </div>
+            {emailsError ? (
+              <p className="muted">Email history isn&apos;t available yet (run the email migrations).</p>
+            ) : (emails ?? []).length === 0 ? (
+              <p className="muted">No emails yet.</p>
+            ) : (
+              <ul className="ws-rows">
+                {(emails ?? []).map((e) => (
+                  <li key={e.id as string}>
+                    <Pill
+                      tone={e.status === "sent" ? "green" : e.status === "failed" ? "red" : "grey"}
+                      label={e.status === "sent" ? "Sent" : e.status === "failed" ? "Failed" : "Not sent"}
+                    />
+                    <span className="grow">
+                      {e.subject as string} <span className="muted">· to {e.to_email as string}</span>
+                      {e.error && e.status !== "sent" ? <span className="muted"> · {e.error as string}</span> : null}
+                    </span>
+                    <span className="muted small">{formatDateTime(e.created_at as string)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {project.description && (
+            <section id="notes" className="ws-sec">
+              <h3>Notes</h3>
+              <p style={{ whiteSpace: "pre-wrap" }}>{project.description}</p>
+            </section>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
