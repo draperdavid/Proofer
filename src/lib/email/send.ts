@@ -116,9 +116,11 @@ async function deliver(to: string, email: RenderedEmail): Promise<SendResult> {
     return { status: "skipped", reason: "Resend isn't configured (RESEND_API_KEY / RESEND_FROM_EMAIL)" };
   }
   try {
+    const replyTo = env.resendReplyTo();
     const { data, error } = await resend().emails.send({
       from: env.resendFrom(),
       to: [to],
+      ...(replyTo ? { replyTo } : {}),
       subject: email.subject,
       text: email.text,
       html: email.html,
