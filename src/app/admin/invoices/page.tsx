@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
 import { formatCents } from "./money";
+import { businessTodayISO, formatDay } from "@/lib/dates";
 import type { InvoiceStatus } from "./types";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export default async function InvoicesPage({
   searchParams: Promise<SearchParams>;
 }) {
   const { status } = await searchParams;
+  const today = businessTodayISO();
 
   const db = supabaseAdmin();
   let query = db
@@ -74,9 +76,16 @@ export default async function InvoicesPage({
                 <Link href={`/admin/invoices/${inv.id}`}>{inv.projects?.title ?? "Invoice"}</Link>
               </td>
               <td>{inv.contacts?.name ?? "—"}</td>
-              <td>{inv.status}</td>
+              <td>
+                {(() => {
+                  const late = inv.status === "sent" && inv.due_date !== null && inv.due_date < today;
+                  const [tone, label] =
+                    inv.status === "paid" ? ["green", "Paid"] : inv.status === "void" ? ["grey", "Void"] : inv.status === "draft" ? ["blue", "Draft"] : late ? ["red", "Overdue"] : ["blue", "Unpaid"];
+                  return <span className={`st ${tone}`}>{label}</span>;
+                })()}
+              </td>
               <td>{formatCents(inv.total_cents, inv.currency)}</td>
-              <td>{inv.due_date ?? "—"}</td>
+              <td>{inv.due_date ? formatDay(inv.due_date) : "On receipt"}</td>
             </tr>
           ))}
           {invoices.length === 0 && (

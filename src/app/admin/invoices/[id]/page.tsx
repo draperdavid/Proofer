@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteInvoice, updateInvoice, updateInvoiceStatus } from "../actions";
 import { LineItemsEditor } from "../line-items-editor";
 import { formatCents } from "../money";
-import { formatDateTime, formatDay } from "@/lib/dates";
+import { businessTodayISO, formatDateTime, formatDay } from "@/lib/dates";
 import type { Invoice, InvoiceInstallment, InvoiceLineItem, PaymentEvent, PaymentOutcome } from "../types";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
@@ -80,7 +80,9 @@ export default async function InvoiceDetailPage({
         )}
       </p>
       <p>
-        Status: <strong>{invoice.status}</strong>
+        <span className={`st ${invoice.status === "paid" ? "green" : invoice.status === "void" ? "grey" : alerts.length > 0 || (invoice.status === "sent" && invoice.due_date !== null && invoice.due_date < businessTodayISO()) ? "red" : "blue"}`}>
+          {invoice.status === "paid" ? "Paid" : invoice.status === "void" ? "Void" : invoice.status === "draft" ? "Draft" : invoice.status === "sent" && invoice.due_date !== null && invoice.due_date < businessTodayISO() ? "Overdue" : "Unpaid"}
+        </span>
         {invoice.contacts ? ` · ${invoice.contacts.name}` : ""}
         {" · "}
         {formatCents(invoice.total_cents, invoice.currency)}

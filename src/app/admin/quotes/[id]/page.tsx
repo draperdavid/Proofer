@@ -52,7 +52,9 @@ export default async function QuoteDetailPage({
         )}
       </p>
       <p>
-        Status: <strong>{quote.status}</strong>
+        <span className={`st ${quote.status === "accepted" ? "green" : quote.status === "sent" ? "amber" : "blue"}`}>
+          {quote.status === "accepted" ? "Accepted" : quote.status === "sent" ? "Sent" : "Draft"}
+        </span>
         {quote.contacts ? ` · ${quote.contacts.name}` : ""}
       </p>
 
