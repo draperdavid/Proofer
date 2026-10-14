@@ -476,3 +476,78 @@ td .pills { margin-top: 0; }
 /* optical alignment: the rail's first heading shares a line with the board's column titles */
 .fluid-r .rail { padding-top: 3px; }
 @media (max-width: 1100px) { .fluid-r .rail { padding-top: var(--sp-5); } }
+
+/* ------------------------------------------------- 2026-10-14 restyle (C2) */
+/* Pills: a light tint of the status color plus a matching hairline, sentence
+   case, no dot. Only for things that need attention or a stage label. */
+.st { gap: 0; padding: 2px 10px; font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; line-height: 1.5;
+  background: color-mix(in srgb, var(--c) 10%, transparent); border: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
+.st::before { content: none; }
+.st.stage { --c: var(--t1); border-radius: var(--r-lg); background: var(--s0); border-color: var(--bd-hi); }
+
+/* Buttons: 8px corners; outlined by default (row actions), one filled
+   primary per screen, a visible ring for keyboard focus. */
+button, .btn { border-radius: var(--r-lg); border-color: var(--bd-hi); font-weight: 600; padding: 7px 14px; }
+button:hover, .btn:hover { background: var(--s0); border-color: var(--bd-hi); }
+button.primary, .btn.primary { border-color: var(--acc); }
+button.primary:hover, .btn.primary:hover { filter: brightness(0.9); }
+button.ghost, .btn.ghost { border-color: transparent; font-weight: 500; }
+button:focus-visible, .btn:focus-visible, a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--t1); }
+.btn.quiet { border-color: transparent; font-weight: 500; text-decoration: underline; text-decoration-color: var(--bd-hi); text-underline-offset: 3px; }
+.btn.sm, button.sm { padding: 4px 12px; font-size: 13px; }
+
+/* Segmented switch: the selected option is filled with ink. */
+.seg { padding: 0; gap: 0; border-color: var(--bd-hi); border-radius: var(--r-lg); overflow: hidden; background: transparent; }
+.seg a { border-radius: 0; padding: 6px 14px; }
+.seg a + a { border-left: 1px solid var(--bd-hi); }
+.seg a.on { background: var(--t1); color: var(--bg); }
+
+/* Dock: on desktop it floats as a centered bar, so its targets sit close
+   together; Projects is a normal slot, so the accent stays free for status. */
+.bi.center .bicon { width: auto; height: auto; border-radius: 0; background: none; color: inherit; margin-top: 0; border: 0; box-shadow: none; }
+.bi.on, .bi.center.on { color: var(--t1); }
+@media (min-width: 900px) {
+  .bar { left: 50%; right: auto; bottom: 12px; transform: translateX(-50%); width: min(760px, calc(100vw - 32px)); height: var(--bar-h); padding: 6px; gap: 2px;
+    background: var(--s1); border: 1px solid var(--bd); border-radius: 16px; box-shadow: var(--card-sh); }
+  .bi { border-radius: 10px; }
+  .bi.on { background: var(--s0); box-shadow: inset 0 0 0 1px var(--bd-hi); }
+  .sheet { bottom: calc(var(--bar-h) + 24px); right: calc(50% - min(380px, 50vw - 16px)); }
+  .app { padding-bottom: calc(var(--bar-h) + 40px); }
+  html { scroll-padding-bottom: calc(var(--bar-h) + 40px); }
+}
+
+/* Projects home (C2) */
+.projects-home { display: flex; flex-direction: column; gap: var(--sp-6); }
+.projects-home h1 { border: 0; padding: 0; margin: 0; font-size: 30px; }
+.ph-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-4); }
+.ph-date { color: var(--t2); font-size: var(--fs-sm); }
+.ph-money { display: flex; flex-wrap: wrap; gap: var(--sp-6); margin: 0; }
+.ph-money div { display: flex; flex-direction: column-reverse; }
+.ph-money dd { margin: 0; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ph-money dt { color: var(--t2); font-size: 13px; }
+.ph-money .late dd { color: var(--clay); }
+.attn { display: flex; flex-direction: column; gap: var(--sp-3); }
+.attn .seg { align-self: flex-start; }
+.seg .n { font-variant-numeric: tabular-nums; opacity: 0.75; }
+.attn-empty { color: var(--t2); padding: var(--sp-3) 0; border-top: 1px solid var(--bd-hi); margin: 0; }
+.attn-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--bd-hi); }
+.attn-list li { display: grid; grid-template-columns: 36px 150px minmax(0, 1fr) auto auto; align-items: center; gap: var(--sp-4); min-height: 56px; padding: 0 var(--sp-3); border-bottom: 1px solid var(--bd); margin: 0; }
+.attn-list .thumb { width: 36px; height: 36px; border-radius: 6px; background: var(--s3); object-fit: cover; display: block; }
+.attn-list .st { justify-self: start; }
+.attn-list .what { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attn-list .name { font-weight: 650; color: var(--t1); }
+.attn-list .detail, .attn-list .when { color: var(--t2); }
+.attn-list .when { font-size: 13px; }
+@media (max-width: 760px) { .attn-list li { grid-template-columns: 36px minmax(0, 1fr) auto; padding: var(--sp-2) 0; } .attn-list .st, .attn-list .when { display: none; } }
+.pipe { display: flex; flex-direction: column; gap: var(--sp-3); }
+.pipe-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.pipe-head h2 { margin: 0; font-size: 20px; }
+.colhead { border-bottom-color: var(--bd-hi); }
+.colval { font-size: 13px; color: var(--t2); font-weight: 500; font-variant-numeric: tabular-nums; }
+.col { min-height: 260px; }
+.kcard { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 10px; background: none; border: 0; border-bottom: 1px solid var(--bd); border-radius: 0; box-shadow: none; padding: 12px 2px; margin: 0; }
+.kcard:hover { border-color: var(--bd); background: color-mix(in srgb, var(--s0) 60%, transparent); }
+.kthumb { width: 40px; height: 40px; border-radius: 6px; background: var(--s3); object-fit: cover; display: block; }
+.kbody { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.kbody a { font-weight: 650; }
+.kclient { color: var(--t2); font-size: 13px; }

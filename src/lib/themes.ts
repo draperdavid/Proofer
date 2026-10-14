@@ -6,9 +6,9 @@
 // Each theme has a light and a dark variant. Which one shows depends on the
 // "mode" setting: auto follows the device, or it can be forced.
 
-export const THEME_IDS = ["slide", "print", "avocado"] as const;
+export const THEME_IDS = ["silver", "slide", "print", "avocado"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
-export const DEFAULT_THEME: ThemeId = "slide"; // used when nothing is saved
+export const DEFAULT_THEME: ThemeId = "silver"; // used when nothing is saved (chosen 2026-10-14)
 export const MODES = ["light", "dark"] as const; // absent = auto (follow the device)
 export type Mode = (typeof MODES)[number];
 
@@ -34,6 +34,26 @@ const lightShadow = (rgb: string) => `0 1px 2px rgba(${rgb},.05), 0 6px 20px rgb
 const darkShadow = "0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.3)";
 
 export const THEMES: Record<ThemeId, Theme> = {
+  silver: {
+    name: "Gelatin silver",
+    blurb: "Cool gray paper, ink blue",
+    swatches: ["#EBE9E5", "#1F1E1C", "#2F4B63", "#9B3426", "#78736B"],
+    light: {
+      bg: "#ebe9e5", s0: "#e1dfda", s1: "#f6f5f2", s2: "#dfdcd6", s3: "#d5d1ca",
+      bd: "#d7d4cd", "bd-hi": "#bcb7ad", t1: "#1f1e1c", t2: "#57534c", t3: "#76716a",
+      acc: "#2f4b63", "acc-ink": "#f2f6fa", "acc-soft": "rgba(47,75,99,.10)", "acc-line": "rgba(47,75,99,.30)",
+      gold: "#7d5d10", clay: "#9b3426", amber: "#73500e", ok: "#3f5f2a", blue: "#2f5886",
+      scrim: "rgba(20,20,20,.32)", shadow: "rgba(30,30,30,.14)", "card-sh": lightShadow("30,30,30"),
+    },
+    dark: {
+      bg: "#18191b", s0: "#1d1f22", s1: "#212327", s2: "#292c30", s3: "#31353a",
+      bd: "#2f3236", "bd-hi": "#45494f", t1: "#ecebe8", t2: "#aeaba5", t3: "#8b8882",
+      acc: "#93b6d6", "acc-ink": "#0f1c28", "acc-soft": "rgba(147,182,214,.13)", "acc-line": "rgba(147,182,214,.36)",
+      gold: "#d9b363", clay: "#ef8f7e", amber: "#e0b46a", ok: "#a3c79b", blue: "#93b6e0",
+      scrim: "rgba(0,0,0,.66)", shadow: "rgba(0,0,0,.5)", "card-sh": darkShadow,
+    },
+  },
+
   slide: {
     name: "Faded slide",
     blurb: "Cream stock, burnt orange, olive",

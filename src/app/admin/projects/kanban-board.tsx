@@ -10,6 +10,7 @@ import { moveProject } from "./actions";
 import type { Project, ProjectStage } from "./types";
 import type { Badge } from "@/lib/project-badges";
 import { formatDay } from "@/lib/dates";
+import { dollars } from "@/lib/projects/attention";
 
 function groupByStage(stages: ProjectStage[], projects: Project[]) {
   const columns = new Map<string, Project[]>();
@@ -26,11 +27,16 @@ export function KanbanBoard({
   projects,
   clients,
   badges,
+  covers = {},
+  values = {},
 }: {
   stages: ProjectStage[];
   projects: Project[];
   clients: Record<string, string>;
   badges: Record<string, Badge[]>;
+  // Gallery cover thumbnail per project id, and invoiced value per stage id.
+  covers?: Record<string, string>;
+  values?: Record<string, number>;
 }) {
   const router = useRouter();
   const [columns, setColumns] = useState(() => groupByStage(stages, projects));
@@ -94,7 +100,10 @@ export function KanbanBoard({
             }}
           >
             <h3 className="colhead">
-              {stage.name} <span className="count">{cards.length}</span>
+              <span className="st stage">
+                {stage.name} · {cards.length}
+              </span>
+              {(values[stage.id] ?? 0) > 0 && <span className="colval">{dollars(values[stage.id])}</span>}
             </h3>
             {cards.map((p, i) => (
               <div
@@ -125,20 +134,21 @@ export function KanbanBoard({
                 }}
                 className={`kcard${draggingId === p.id ? " dragging" : ""}`}
               >
-                <Link href={`/admin/projects/${p.id}`} draggable={false}>
-                  {p.title}
-                </Link>
-                {clients[p.id] && (
-                  <div className="kclient">{clients[p.id]}</div>
+                {covers[p.id] ? (
+                  <img className="kthumb" src={covers[p.id]} alt="" loading="lazy" draggable={false} />
+                ) : (
+                  <span className="kthumb" aria-hidden="true" />
                 )}
-                <div className="pills">
-                  {p.event_date && <span className="chip">{formatDay(p.event_date)}</span>}
-                  {p.type && <span className="chip">{p.type}</span>}
-                  {(badges[p.id] ?? []).map((bd) => (
-                    <span key={bd.label} className={`st ${bd.tone}`}>
-                      {bd.label}
-                    </span>
-                  ))}
+                <div className="kbody">
+                  <Link href={`/admin/projects/${p.id}`} draggable={false}>
+                    {p.title}
+                  </Link>
+                  <div className="kclient">
+                    {[clients[p.id], p.event_date ? formatDay(p.event_date, false) : p.type].filter(Boolean).join(" · ")}
+                  </div>
+                  {(badges[p.id] ?? [])[0] && (
+                    <span className={`st ${badges[p.id][0].tone}`}>{badges[p.id][0].label}</span>
+                  )}
                 </div>
               </div>
             ))}

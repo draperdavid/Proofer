@@ -1,7 +1,7 @@
 "use client";
 
 // Admin shell: a slim top bar (brand, search, account) and a bottom icon bar
-// (Lark-style) with Projects raised in the center. "More" opens a sheet with
+// (Lark-style) with Projects in the center slot. "More" opens a sheet with
 // everything that doesn't fit on the bar. Items come from nav-config.ts.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +16,7 @@ const ICONS: Record<IconName, string> = {
   camera: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   mail: "M3 6h18v12H3zM3 7l9 7 9-7",
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6",
+  calendar: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",
 };

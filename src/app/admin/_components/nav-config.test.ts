@@ -6,7 +6,7 @@ import { BAR, MORE_GROUPS, activeKey, allHrefs } from "./nav-config.ts";
 test("bar is six items with Projects in slot 4, so with More it is 3 | Projects | 3", () => {
   assert.deepEqual(
     BAR.map((b) => b.key),
-    ["contacts", "finance", "galleries", "projects", "inbox", "documents"]
+    ["contacts", "finance", "calendar", "projects", "galleries", "inbox"]
   );
   assert.equal(BAR[3].key, "projects");
   assert.ok(BAR[3].center);
@@ -25,10 +25,11 @@ test("each main section lights its own slot", () => {
   assert.equal(activeKey("/admin/galleries/g1"), "galleries");
 });
 
-test("Documents covers contracts, questionnaires and quotes, but not their templates", () => {
+test("Documents (under More) covers contracts, questionnaires and quotes; Calendar is bookings", () => {
   for (const p of ["/admin/contracts", "/admin/contracts/c1", "/admin/questionnaires", "/admin/questionnaires/q1", "/admin/quotes", "/admin/quotes/q1"]) {
-    assert.equal(activeKey(p), "documents", p);
+    assert.equal(activeKey(p), "more", p);
   }
+  assert.equal(activeKey("/admin/bookings"), "calendar");
   for (const p of ["/admin/contracts/templates", "/admin/contracts/templates/t1", "/admin/questionnaires/templates"]) {
     assert.equal(activeKey(p), "more", p);
   }
@@ -44,7 +45,6 @@ test("bookings and the store live under More", () => {
   assert.equal(activeKey("/admin/session-types"), "more");
   assert.equal(activeKey("/admin/session-types/s1"), "more");
   assert.equal(activeKey("/admin/availability"), "more");
-  assert.equal(activeKey("/admin/bookings"), "more");
   assert.equal(activeKey("/admin/store"), "more");
   assert.equal(activeKey("/admin/store/p1"), "more");
   assert.equal(activeKey("/admin/settings"), "more");

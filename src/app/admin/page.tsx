@@ -1,190 +1,259 @@
 import Link from "next/link";
 import { projectBadges, type Badge } from "@/lib/project-badges";
-import { formatDay, todayISO } from "@/lib/dates";
+import { BUSINESS_TIME_ZONE, businessTodayISO, formatDay } from "@/lib/dates";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isMissingTable } from "@/lib/db-errors";
+import { presignGet, r2Configured } from "@/lib/r2";
+import { GRID_SIZE, displayKey, type Variants } from "@/lib/galleries/variants";
+import { summarizeProjectMoney, type SummaryInstallment, type SummaryInvoice } from "@/lib/payments/summary";
+import { attentionItems, dollars, type AttentionItem, type Split } from "@/lib/projects/attention";
 import { KanbanBoard } from "./projects/kanban-board";
 import type { Project, ProjectStage } from "./projects/types";
-import { OverviewRail, loadOverview } from "./_components/overview";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { view?: string; archived?: string; q?: string; type?: string };
+// The Projects home (2026-10-14 restyle, layout "C2"): money at a glance, an
+// action list (Needs you / Waiting on client / This week), then the pipeline
+// board or list.
 
-// PostgREST's .or() filter syntax treats "," and "()" as structural, so strip
-// them from user input rather than letting a search term reshape the filter.
-function sanitizeSearchTerm(term: string): string {
-  return term.replace(/[,()]/g, "").trim();
-}
+type SearchParams = { view?: string; archived?: string; tab?: string };
 
-export default async function AdminHome({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const { view, archived, q, type } = await searchParams;
+const TABS: { key: Split; name: string }[] = [
+  { key: "needs", name: "Needs you" },
+  { key: "waiting", name: "Waiting on client" },
+  { key: "week", name: "This week" },
+];
+const EMPTY: Record<Split, string> = {
+  needs: "Nothing needs you right now.",
+  waiting: "Nothing out with clients.",
+  week: "No sessions in the next 7 days.",
+};
+
+type InvoiceRow = SummaryInvoice & { project_id: string; created_at: string; paid_at: string | null };
+type InstallmentRow = SummaryInstallment & { paid_at: string | null };
+
+export default async function AdminHome({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const { view, archived, tab: tabParam } = await searchParams;
   const showArchived = archived === "1";
   const isListView = view === "list";
+  const tab: Split = tabParam === "waiting" || tabParam === "week" ? tabParam : "needs";
 
   const db = supabaseAdmin();
-
-  let query = db
-    .from("projects")
-    .select("*")
-    .eq("archived", showArchived)
-    .order("position", { ascending: true });
-
-  const term = q ? sanitizeSearchTerm(q) : "";
-  if (term) {
-    query = query.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
-  }
-  if (type) {
-    query = query.eq("type", type);
-  }
-
-  const [
-    { data: projectsData, error: projectsError },
-    { data: stagesData, error: stagesError },
-    { data: contactsData, error: contactsError },
-    overview,
-  ] = await Promise.all([
-    query,
+  const [projectsRes, stagesRes, contactsRes] = await Promise.all([
+    db.from("projects").select("*").order("position", { ascending: true }),
     db.from("project_stages").select("*").order("position", { ascending: true }),
     db.from("contacts").select("id, name"),
-    loadOverview(),
   ]);
-  if (projectsError) throw projectsError;
-  if (stagesError) throw stagesError;
-  if (contactsError) throw contactsError;
+  if (projectsRes.error) throw projectsRes.error;
+  if (stagesRes.error) throw stagesRes.error;
+  if (contactsRes.error) throw contactsRes.error;
 
-  const projects = (projectsData ?? []) as Project[];
-  const stages = (stagesData ?? []) as ProjectStage[];
-  const contactNames = new Map((contactsData ?? []).map((c) => [c.id as string, c.name as string]));
-  const hasFilters = Boolean(q || type);
+  const allProjects = (projectsRes.data ?? []) as Project[];
+  const active = allProjects.filter((p) => !p.archived);
+  const projects = allProjects.filter((p) => p.archived === showArchived);
+  const stages = (stagesRes.data ?? []) as ProjectStage[];
+  const contactNames = new Map((contactsRes.data ?? []).map((c) => [c.id as string, c.name as string]));
 
-  // Status pills come from each project's real invoices, contracts and questionnaires.
-  // If any of these lookups fails the board still renders, just without those pills.
-  const projectIds = projects.map((pr) => pr.id);
-  const [invRes, conRes, quesRes] =
-    projectIds.length > 0
+  const ids = allProjects.map((p) => p.id);
+  const [invRes, conRes, quesRes, collRes] =
+    ids.length > 0
       ? await Promise.all([
-          db.from("invoices").select("project_id, status, due_date").in("project_id", projectIds),
-          db.from("contracts").select("project_id, status").in("project_id", projectIds),
-          db.from("questionnaires").select("project_id, submitted_at").in("project_id", projectIds),
+          db.from("invoices").select("id, project_id, status, due_date, total_cents, amount_paid_cents, created_at, paid_at").in("project_id", ids),
+          db.from("contracts").select("id, project_id, status, sent_at, created_at").in("project_id", ids),
+          db.from("questionnaires").select("id, project_id, submitted_at, created_at").in("project_id", ids),
+          db.from("collections").select("id, project_id").in("project_id", ids),
         ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
-  const today = todayISO();
+      : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  const invoices = (invRes.data ?? []) as InvoiceRow[];
+  const contracts = (conRes.data ?? []) as { id: string; project_id: string; status: string; sent_at: string | null; created_at: string }[];
+  const questionnaires = (quesRes.data ?? []) as { id: string; project_id: string; submitted_at: string | null; created_at: string }[];
+
+  let installments: InstallmentRow[] = [];
+  if (invoices.length > 0) {
+    const { data, error } = await db
+      .from("invoice_installments")
+      .select("invoice_id, amount_cents, due_date, status, paid_at")
+      .in("invoice_id", invoices.map((i) => i.id));
+    if (error && !isMissingTable(error)) throw error;
+    installments = (data ?? []) as InstallmentRow[];
+  }
+
+  const today = businessTodayISO();
+  const month = today.slice(0, 7);
+  const inMonth = (ts: string | null) =>
+    ts !== null && new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric", month: "2-digit" }).format(new Date(ts)) === month;
+  const scheduled = new Set(installments.map((i) => i.invoice_id));
+  const paidThisMonth =
+    installments.filter((i) => i.status === "paid" && inMonth(i.paid_at)).reduce((s, i) => s + i.amount_cents, 0) +
+    invoices.filter((i) => i.status === "paid" && !scheduled.has(i.id) && inMonth(i.paid_at)).reduce((s, i) => s + (i.amount_paid_cents ?? i.total_cents), 0);
+  const money = summarizeProjectMoney(invoices, installments, today);
+
+  const firstStageId = stages[0]?.id ?? null;
+  const items = attentionItems({ projects: active, invoices, installments, contracts, questionnaires, firstStageId, today });
+  const counts: Record<Split, number> = { needs: 0, waiting: 0, week: 0 };
+  for (const it of items) counts[it.split] += 1;
+  const shown = items.filter((i) => i.split === tab);
+
+  // Gallery covers as small thumbnails (640px variant, presigned locally).
+  const covers: Record<string, string> = {};
+  const collections = (collRes.data ?? []) as { id: string; project_id: string }[];
+  if (collections.length > 0 && r2Configured()) {
+    const { data: cards } = await db.from("collection_cards").select("collection_id, cover_id").in("collection_id", collections.map((c) => c.id));
+    const coverIds = (cards ?? []).map((c) => c.cover_id as string | null).filter((x): x is string => !!x);
+    if (coverIds.length > 0) {
+      const { data: assets } = await db.from("media_assets").select("id, collection_id, r2_key, variants, variants_ready").in("id", coverIds);
+      for (const a of (assets ?? []) as { id: string; collection_id: string; r2_key: string; variants: Variants | null; variants_ready: boolean }[]) {
+        const projectId = collections.find((c) => c.id === a.collection_id)?.project_id;
+        if (projectId && !covers[projectId]) covers[projectId] = await presignGet(displayKey(a, GRID_SIZE));
+      }
+    }
+  }
+
+  // One pill per project on the board: the most urgent thing, never a "done" state.
   const badges: Record<string, Badge[]> = {};
-  for (const id of projectIds) {
-    badges[id] = projectBadges(
+  for (const p of projects) {
+    badges[p.id] = projectBadges(
       {
-        invoices: ((invRes.data ?? []) as { project_id: string; status: string; due_date: string | null }[]).filter((r) => r.project_id === id),
-        contracts: ((conRes.data ?? []) as { project_id: string; status: string }[]).filter((r) => r.project_id === id),
-        questionnaires: ((quesRes.data ?? []) as { project_id: string; submitted_at: string | null }[]).filter((r) => r.project_id === id),
+        invoices: invoices.filter((r) => r.project_id === p.id),
+        contracts: contracts.filter((r) => r.project_id === p.id),
+        questionnaires: questionnaires.filter((r) => r.project_id === p.id),
       },
       today
-    );
+    ).filter((b) => b.tone !== "green");
   }
   const clients: Record<string, string> = {};
-  for (const pr of projects) if (pr.contact_id && contactNames.get(pr.contact_id)) clients[pr.id] = contactNames.get(pr.contact_id)!;
+  for (const p of projects) if (p.contact_id && contactNames.get(p.contact_id)) clients[p.id] = contactNames.get(p.contact_id)!;
+  const stageValues: Record<string, number> = {};
+  for (const p of projects) {
+    if (!p.stage_id) continue;
+    const v = invoices.filter((i) => i.project_id === p.id && i.status !== "void").reduce((s, i) => s + i.total_cents, 0);
+    stageValues[p.stage_id] = (stageValues[p.stage_id] ?? 0) + v;
+  }
 
+  const monthName = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TIME_ZONE, month: "long" }).format(new Date());
+  const dateLabel = new Intl.DateTimeFormat("en-US", { timeZone: BUSINESS_TIME_ZONE, weekday: "long", month: "long", day: "numeric" }).format(new Date());
   const viewParam = isListView ? "list" : "board";
-  const baseQuery = `view=${viewParam}${showArchived ? "&archived=1" : ""}`;
+  const keep = `view=${viewParam}${showArchived ? "&archived=1" : ""}`;
 
   return (
-    <main className="fluid fluid-r">
-      <div className="homehead">
-      <div className="pagehead">
-        <h1>Projects</h1>
-        <div className="row">
-          <nav className="seg" aria-label="View">
-            <Link href={`/admin?view=board${showArchived ? "&archived=1" : ""}`} className={isListView ? undefined : "on"}>
-              Board
-            </Link>
-            <Link href={`/admin?view=list${showArchived ? "&archived=1" : ""}`} className={isListView ? "on" : undefined}>
-              List
-            </Link>
-          </nav>
-          {showArchived ? (
-            <Link href={`/admin?view=${viewParam}`} className="btn">
-              Active
-            </Link>
-          ) : (
-            <Link href={`/admin?view=${viewParam}&archived=1`} className="btn">
-              Archived
-            </Link>
-          )}
-          <Link href="/admin/projects/stages" className="btn">
-            Manage stages
-          </Link>
+    <main className="fluid fluid-r projects-home">
+      <header className="ph-head">
+        <div>
+          <span className="ph-date">{dateLabel}</span>
+          <h1>Projects</h1>
         </div>
-      </div>
+        <dl className="ph-money">
+          <div>
+            <dd>{dollars(paidThisMonth)}</dd>
+            <dt>paid in {monthName}</dt>
+          </div>
+          <div>
+            <dd>{dollars(money.upcomingCents)}</dd>
+            <dt>upcoming</dt>
+          </div>
+          <div className={money.pastDueCents > 0 ? "late" : undefined}>
+            <dd>{dollars(money.pastDueCents)}</dd>
+            <dt>past due</dt>
+          </div>
+        </dl>
+      </header>
 
-      <form className="filters">
-        <input type="hidden" name="view" value={viewParam} />
-        {showArchived && <input type="hidden" name="archived" value="1" />}
-        <input type="text" name="q" placeholder="Search title or location" defaultValue={q ?? ""} />
-        <input type="text" name="type" placeholder="Filter by type" defaultValue={type ?? ""} />
-        <button type="submit">Filter</button>
-        {hasFilters && <Link href={`/admin?${baseQuery}`}>Clear</Link>}
-      </form>
-      </div>
-      <div className="homegrid">
-        <div className="homemain">
-
-      {isListView ? (
-        <table>
-          <thead>
-            <tr>
-              <th>Project</th>
-              <th>Client</th>
-              <th>Stage</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {projects.map((pr) => (
-              <tr key={pr.id}>
-                <td>
-                  <Link href={`/admin/projects/${pr.id}`}>{pr.title}</Link>
-                  {pr.type && <span className="chip" style={{ marginLeft: 8 }}>{pr.type}</span>}
-                </td>
-                <td>
-                  {clients[pr.id] ? (
-                    <span className="clientcell">{clients[pr.id]}</span>
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td>
-                  <span className="st grey">{stages.find((s) => s.id === pr.stage_id)?.name ?? "No stage"}</span>
-                </td>
-                <td>{pr.event_date ? <span className="chip">{formatDay(pr.event_date)}</span> : <span className="muted">TBD</span>}</td>
-                <td>
-                  <span className="pills">
-                    {badges[pr.id].map((bd) => (
-                      <span key={bd.label} className={`st ${bd.tone}`}>
-                        {bd.label}
-                      </span>
-                    ))}
-                    {badges[pr.id].length === 0 && <span className="muted">—</span>}
-                  </span>
-                </td>
-              </tr>
+      <section className="attn" aria-label="What needs attention">
+        <nav className="seg" aria-label="Lists">
+          {TABS.map((t) => (
+            <Link key={t.key} href={`/admin?${keep}&tab=${t.key}`} className={t.key === tab ? "on" : undefined} aria-current={t.key === tab ? "page" : undefined}>
+              {t.name} <span className="n">{counts[t.key]}</span>
+            </Link>
+          ))}
+        </nav>
+        {shown.length === 0 ? (
+          <p className="attn-empty">{EMPTY[tab]}</p>
+        ) : (
+          <ul className="attn-list">
+            {shown.map((it: AttentionItem) => (
+              <li key={it.key}>
+                {covers[it.projectId] ? <img className="thumb" src={covers[it.projectId]} alt="" loading="lazy" /> : <span className="thumb" aria-hidden="true" />}
+                <span className={`st ${it.tone}`}>{it.label}</span>
+                <span className="what">
+                  <Link href={`/admin/projects/${it.projectId}`} className="name">{it.title}</Link>
+                  <span className="detail"> · {it.detail}</span>
+                </span>
+                <span className="when">{it.when}</span>
+                <Link href={it.href} className="btn sm">
+                  {it.action}
+                </Link>
+              </li>
             ))}
-            {projects.length === 0 && (
-              <tr>
-                <td colSpan={5}>No projects found.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      ) : (
-        <KanbanBoard stages={stages} projects={projects} clients={clients} badges={badges} />
-      )}
+          </ul>
+        )}
+      </section>
+
+      <section className="pipe" aria-label="Pipeline">
+        <div className="pipe-head">
+          <h2>{showArchived ? "Archived projects" : "Pipeline"}</h2>
+          <div className="row">
+            <Link href={`/admin?view=${viewParam}${showArchived ? "" : "&archived=1"}`} className="btn quiet">
+              {showArchived ? "Back to active" : "Archived"}
+            </Link>
+            <Link href="/admin/projects/stages" className="btn quiet">
+              Edit stages
+            </Link>
+            <nav className="seg" aria-label="View">
+              <Link href={`/admin?view=board${showArchived ? "&archived=1" : ""}&tab=${tab}`} className={isListView ? undefined : "on"}>
+                Board
+              </Link>
+              <Link href={`/admin?view=list${showArchived ? "&archived=1" : ""}&tab=${tab}`} className={isListView ? "on" : undefined}>
+                List
+              </Link>
+            </nav>
+          </div>
         </div>
-        <OverviewRail overview={overview} />
-      </div>
+
+        {isListView ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Client</th>
+                <th>Stage</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((pr) => (
+                <tr key={pr.id}>
+                  <td>
+                    <Link href={`/admin/projects/${pr.id}`}>{pr.title}</Link>
+                  </td>
+                  <td>{clients[pr.id] ?? <span className="muted">—</span>}</td>
+                  <td>
+                    <span className="st stage">{stages.find((s) => s.id === pr.stage_id)?.name ?? "No stage"}</span>
+                  </td>
+                  <td>{pr.event_date ? formatDay(pr.event_date) : <span className="muted">TBD</span>}</td>
+                  <td>
+                    <span className="pills">
+                      {badges[pr.id].map((bd) => (
+                        <span key={bd.label} className={`st ${bd.tone}`}>
+                          {bd.label}
+                        </span>
+                      ))}
+                      {badges[pr.id].length === 0 && <span className="muted">—</span>}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {projects.length === 0 && (
+                <tr>
+                  <td colSpan={5}>No projects here.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <KanbanBoard stages={stages} projects={projects} clients={clients} badges={badges} covers={covers} values={stageValues} />
+        )}
+      </section>
     </main>
   );
 }

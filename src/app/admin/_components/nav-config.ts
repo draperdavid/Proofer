@@ -10,6 +10,7 @@ export type IconName =
   | "camera"
   | "mail"
   | "file"
+  | "calendar"
   | "more"
   | "search";
 
@@ -38,13 +39,14 @@ const documents = (p: string) =>
   under("/admin/quotes")(p);
 
 // Left to right. Index 3 is the center slot; "More" follows as the seventh.
+// Calendar (bookings) replaced Documents on the bar in the 2026-10-14 restyle.
 export const BAR: BarItem[] = [
   { key: "contacts", name: "Contacts", href: "/admin/contacts", icon: "user", on: under("/admin/contacts") },
-  { key: "finance", name: "Finance", href: "/admin/invoices", icon: "dollar", on: under("/admin/invoices") },
-  { key: "galleries", name: "Galleries", href: "/admin/galleries", icon: "image", on: under("/admin/galleries") },
+  { key: "finance", name: "Money", href: "/admin/invoices", icon: "dollar", on: under("/admin/invoices") },
+  { key: "calendar", name: "Calendar", href: "/admin/bookings", icon: "calendar", on: under("/admin/bookings") },
   { key: "projects", name: "Projects", href: "/admin", icon: "camera", on: (p) => p === "/admin" || under("/admin/projects")(p), center: true },
+  { key: "galleries", name: "Galleries", href: "/admin/galleries", icon: "image", on: under("/admin/galleries") },
   { key: "inbox", name: "Inbox", href: INBOX, icon: "mail", on: under(INBOX) },
-  { key: "documents", name: "Documents", href: "/admin/contracts", icon: "file", on: documents },
 ];
 
 export type MoreLink = { href: string; name: string; on: (path: string) => boolean };
@@ -53,9 +55,14 @@ export type MoreGroup = { label: string; links: MoreLink[] };
 // What the "More" sheet holds.
 export const MORE_GROUPS: MoreGroup[] = [
   {
+    label: "Documents",
+    links: [
+      { href: "/admin/contracts", name: "Contracts, questionnaires, quotes", on: documents },
+    ],
+  },
+  {
     label: "Bookings",
     links: [
-      { href: "/admin/bookings", name: "Bookings", on: under("/admin/bookings") },
       { href: "/admin/session-types", name: "Session types", on: under("/admin/session-types") },
       { href: "/admin/availability", name: "Availability", on: under("/admin/availability") },
     ],
