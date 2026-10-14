@@ -17,6 +17,10 @@ name = "proofer-staging"
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# Public base URL for links in Stripe redirects and emails. Not a secret.
+[env.staging.vars]
+APP_BASE_URL = "https://proofer-staging.proofer.workers.dev"
+
 # No R2 binding: galleries (Phase 5) need presigned URLs so media goes
 # browser <-> R2 directly, which needs the S3-compatible API with access keys
 # (r2.ts + the R2_* secrets below), not a binding.
