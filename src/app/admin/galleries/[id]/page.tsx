@@ -155,29 +155,32 @@ export default async function CollectionDetailPage({
   const activeAssets = activeSet ? assets.filter((a) => a.set_id === activeSet.id) : [];
   const activeIndex = activeSet ? sets.findIndex((s) => s.id === activeSet.id) : -1;
 
+  const linkedProject = collection.project_id ? projects.find((p) => p.id === collection.project_id) ?? null : null;
+  const linkedContact = collection.contact_id ? contacts.find((c) => c.id === collection.contact_id) ?? null : null;
+  const SETTINGS_SECTIONS = [
+    { key: "general", name: "General" },
+    { key: "privacy", name: "Privacy" },
+    { key: "downloads", name: "Downloads" },
+    { key: "store", name: "Store" },
+  ];
+
   return (
-    <main className="editor">
-      <header className="ed-top">
-        <Link href="/admin/galleries" className="ed-back" aria-label="Back to galleries">
-          ←
-        </Link>
-        <div className="ed-title">
-          <strong>{collection.name}</strong>
-          <span>{dateLabel}</span>
-        </div>
-
-        <details className="menu">
-          <summary className="menu-btn" aria-label="Change status">
-            <span className={`st ${published ? "green" : "grey"}`}>{published ? "Published" : "Draft"}</span>
-            <span className="caret">▾</span>
-          </summary>
-          <div className="menu-pop">
-            <form action={toggleStatus}>
-              <button type="submit">{published ? "Unpublish (back to draft)" : "Publish"}</button>
-            </form>
+    <main className="fluid workspace editor">
+      <Link className="back" href="/admin/galleries">
+        ← Galleries
+      </Link>
+      <header className="ws-head ed-head">
+        <div className="ed-headtext">
+          <h1>{collection.name}</h1>
+          <div className="ws-meta">
+            <span className={`st ${published ? "green" : "blue"}`}>{published ? "Published" : "Draft"}</span>
+            {dateLabel && <span>{dateLabel}</span>}
+            <span>
+              {assets.length} photo{assets.length === 1 ? "" : "s"}
+            </span>
+            {linkedProject && <Link href={`/admin/projects/${linkedProject.id}`}>{linkedProject.title}</Link>}
           </div>
-        </details>
-
+        </div>
         <div className="ed-actions">
           <Link
             href={`/g/${collection.slug}`}
@@ -188,9 +191,8 @@ export default async function CollectionDetailPage({
           >
             Preview
           </Link>
-
           <details className="menu">
-            <summary className="btn primary">Share ▾</summary>
+            <summary className="btn primary">Share</summary>
             <div className="menu-pop wide">
               <p className="hint" style={{ margin: "0 0 6px" }}>
                 Client link
@@ -202,13 +204,12 @@ export default async function CollectionDetailPage({
               )}
             </div>
           </details>
-
           <details className="menu">
-            <summary className="btn">More ▾</summary>
+            <summary className="btn">More</summary>
             <div className="menu-pop">
               <form action={deleteThis}>
                 <ConfirmButton message="Delete this gallery and every photo in it? This can't be undone.">
-                  Delete collection
+                  Delete gallery
                 </ConfirmButton>
               </form>
             </div>
@@ -216,77 +217,79 @@ export default async function CollectionDetailPage({
         </div>
       </header>
 
-      <div className="ed-body">
-        <aside className="ed-side">
+      <div className="ws">
+        <aside className="ws-side" aria-label="Gallery summary">
           {coverThumb ? <img className="ed-cover" src={coverThumb} alt="" /> : <div className="ed-cover ph">No cover yet</div>}
+          <dl className="ws-facts">
+            <div>
+              <dt>Client</dt>
+              <dd>{linkedContact ? <Link href={`/admin/contacts/${linkedContact.id}`}>{linkedContact.name}</Link> : "Not linked"}</dd>
+            </div>
+            <div>
+              <dt>Privacy</dt>
+              <dd style={{ textTransform: "capitalize" }}>{collection.visibility}</dd>
+            </div>
+            <div>
+              <dt>Downloads</dt>
+              <dd>{collection.downloads_enabled === false ? "Off" : "On"}</dd>
+            </div>
+            <div>
+              <dt>Store</dt>
+              <dd>{storeEnabled ? "On" : "Off"}</dd>
+            </div>
+          </dl>
+          <form action={toggleStatus}>
+            <button type="submit" className={published ? undefined : "primary"}>
+              {published ? "Unpublish (back to draft)" : "Publish gallery"}
+            </button>
+          </form>
 
-          <nav className="ed-tabs" aria-label="Gallery sections">
-            <Link href={`${base}?tab=photos`} className={tab === "photos" ? "on" : undefined}>
-              Photos
-            </Link>
-            <Link href={`${base}?tab=settings`} className={tab === "settings" ? "on" : undefined}>
-              Settings
-            </Link>
-            <Link href={`${base}?tab=activity`} className={tab === "activity" ? "on" : undefined}>
-              Activity
-            </Link>
-          </nav>
-
-          {tab === "photos" && (
-            <div className="ed-sub">
-              <div className="ed-subhead">
-                <span>Sets</span>
-              </div>
+          <div className="ed-sets">
+            <span className="lbl">Sets</span>
+            <ul className="ws-rows">
               {sets.map((s) => {
                 const count = assets.filter((a) => a.set_id === s.id).length;
+                const on = tab === "photos" && activeSet?.id === s.id;
                 return (
-                  <Link
-                    key={s.id}
-                    href={`${base}?tab=photos&set=${s.id}`}
-                    className={`ed-set${activeSet?.id === s.id ? " on" : ""}`}
-                  >
-                    <span>{s.name}</span>
-                    <span className="muted">{count}</span>
-                  </Link>
+                  <li key={s.id} className={on ? "on" : undefined}>
+                    <Link href={`${base}?tab=photos&set=${s.id}`} className="grow" aria-current={on ? "page" : undefined}>
+                      {s.name}
+                    </Link>
+                    <span className="muted small">{count}</span>
+                  </li>
                 );
               })}
-              <form action={addSet} className="ed-addset">
-                <input type="text" name="name" placeholder="New set name" required />
-                <button type="submit">Add</button>
-              </form>
-            </div>
-          )}
-
-          {tab === "settings" && (
-            <div className="ed-sub">
-              <Link href={`${base}?tab=settings&section=general`} className={`ed-set${section === "general" ? " on" : ""}`}>
-                General
-              </Link>
-              <Link href={`${base}?tab=settings&section=privacy`} className={`ed-set${section === "privacy" ? " on" : ""}`}>
-                <span>Privacy</span>
-                <span className="st grey" style={{ textTransform: "capitalize" }}>
-                  {collection.visibility}
-                </span>
-              </Link>
-              <Link href={`${base}?tab=settings&section=downloads`} className={`ed-set${section === "downloads" ? " on" : ""}`}>
-                <span>Downloads</span>
-                <span className="st grey">{collection.downloads_enabled === false ? "Off" : "On"}</span>
-              </Link>
-              <Link href={`${base}?tab=settings&section=store`} className={`ed-set${section === "store" ? " on" : ""}`}>
-                <span>Store</span>
-                <span className="st grey">{storeEnabled ? "On" : "Off"}</span>
-              </Link>
-            </div>
-          )}
-
-          {tab === "activity" && (
-            <div className="ed-sub">
-              <span className="ed-set on">Favorites</span>
-            </div>
-          )}
+            </ul>
+            <form action={addSet} className="ed-addset">
+              <input type="text" name="name" placeholder="New set name" required aria-label="New set name" />
+              <button type="submit">Add</button>
+            </form>
+          </div>
         </aside>
 
-        <section className="ed-main">
+        <section className="ed-main ws-main">
+          <div className="ed-tabbar">
+            <nav className="seg" aria-label="Gallery sections">
+              <Link href={`${base}?tab=photos`} className={tab === "photos" ? "on" : undefined}>
+                Photos
+              </Link>
+              <Link href={`${base}?tab=settings`} className={tab === "settings" ? "on" : undefined}>
+                Settings
+              </Link>
+              <Link href={`${base}?tab=activity`} className={tab === "activity" ? "on" : undefined}>
+                Activity
+              </Link>
+            </nav>
+            {tab === "settings" && (
+              <nav className="ed-subnav" aria-label="Settings sections">
+                {SETTINGS_SECTIONS.map((x) => (
+                  <Link key={x.key} href={`${base}?tab=settings&section=${x.key}`} className={section === x.key ? "on" : undefined}>
+                    {x.name}
+                  </Link>
+                ))}
+              </nav>
+            )}
+          </div>
           {tab === "photos" && activeSet && (
             <>
               <div className="ed-maintop">
