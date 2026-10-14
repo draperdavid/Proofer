@@ -21,6 +21,7 @@ import {
   type ScheduleRowInput,
 } from "./money";
 import type { DiscountType, InvoiceStatus } from "./types";
+import { isMissingTable } from "@/lib/db-errors";
 
 function str(raw: FormDataEntryValue | null): string | null {
   const v = raw ? String(raw).trim() : "";
@@ -152,8 +153,8 @@ async function replaceInstallments(
     .select("label, amount_cents, due_date, position")
     .eq("invoice_id", invoiceId)
     .order("position", { ascending: true });
-  // 42P01 = migration 0023 not run here yet: fine as long as no schedule is asked for.
-  if (readError?.code === "42P01" && plan.length === 0) return;
+  // Missing table = migration 0023 not run here yet: fine as long as no schedule is asked for.
+  if (isMissingTable(readError) && plan.length === 0) return;
   if (readError) throw readError;
   const same =
     (current ?? []).length === plan.length &&
@@ -177,7 +178,7 @@ async function hasPayments(db: ReturnType<typeof supabaseAdmin>, invoiceId: stri
     .select("id", { count: "exact", head: true })
     .eq("invoice_id", invoiceId)
     .eq("status", "paid");
-  if (error?.code === "42P01") return false;
+  if (isMissingTable(error)) return false;
   if (error) throw error;
   return (count ?? 0) > 0;
 }

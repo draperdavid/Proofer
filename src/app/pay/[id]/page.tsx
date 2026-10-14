@@ -8,6 +8,7 @@ import { formatCents } from "@/app/admin/invoices/money";
 import type { Invoice, InvoiceInstallment, InvoiceLineItem } from "@/app/admin/invoices/types";
 import { formatDay } from "@/lib/dates";
 import { createCheckoutSession } from "./actions";
+import { isMissingTable } from "@/lib/db-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,8 @@ export default async function PayInvoicePage({ params }: { params: Promise<{ id:
     ]);
   if (error || !data) notFound();
   if (itemsError) throw itemsError;
-  // 42P01 = migration 0023 not run here yet: no schedules exist.
-  if (scheduleError && scheduleError.code !== "42P01") throw scheduleError;
+  // Missing table = migration 0023 not run here yet: no schedules exist.
+  if (scheduleError && !isMissingTable(scheduleError)) throw scheduleError;
   const installments = (scheduleRows ?? []) as InvoiceInstallment[];
   const next = installments.find((i) => i.status === "unpaid") ?? null;
 

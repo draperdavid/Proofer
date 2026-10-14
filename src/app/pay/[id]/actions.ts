@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import type { Invoice, InvoiceInstallment } from "@/app/admin/invoices/types";
+import { isMissingTable } from "@/lib/db-errors";
 
 export async function createCheckoutSession(invoiceId: string) {
   const db = supabaseAdmin();
@@ -41,8 +42,8 @@ export async function createCheckoutSession(invoiceId: string) {
     .select("id, label, amount_cents, status, position")
     .eq("invoice_id", invoice.id)
     .order("position", { ascending: true });
-  // 42P01 = migration 0023 not run here yet: no schedules exist.
-  if (scheduleError && scheduleError.code !== "42P01") throw scheduleError;
+  // Missing table = migration 0023 not run here yet: no schedules exist.
+  if (scheduleError && !isMissingTable(scheduleError)) throw scheduleError;
   const installments = (schedule ?? []) as Pick<InvoiceInstallment, "id" | "label" | "amount_cents" | "status" | "position">[];
   const next = installments.find((i) => i.status === "unpaid") ?? null;
   if (installments.length > 0 && !next) throw new Error("Every payment on this invoice is already made");

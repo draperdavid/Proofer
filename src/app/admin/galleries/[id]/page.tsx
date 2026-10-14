@@ -27,6 +27,7 @@ import { Uploader } from "../uploader";
 import type { Collection, MediaAsset, PhotoSet } from "../types";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 import { ClientLink } from "@/app/admin/_components/client-link";
+import { isMissingTable } from "@/lib/db-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function CollectionDetailPage({
     .from("download_grants")
     .select("asset_id, visitor_key")
     .eq("collection_id", id);
-  if (grantsErr && grantsErr.code !== "42P01") throw grantsErr;
+  if (grantsErr && !isMissingTable(grantsErr)) throw grantsErr;
   const downloadsMigrated = !grantsErr;
   const grants = grantRows ?? [];
   const grantsByVisitor = new Map<string, number>();

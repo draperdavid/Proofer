@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 import { resend } from "@/lib/resend";
 import { TEMPLATES, type TemplateKey } from "./templates";
 import { isSendableEmail, renderEmail, unknownFields, type RenderedEmail } from "./render";
+import { isMissingTable } from "@/lib/db-errors";
 
 export type SendResult =
   | { status: "sent"; providerId: string }
@@ -103,8 +104,8 @@ async function deliver(to: string, email: RenderedEmail): Promise<SendResult> {
     .select("reason, created_at")
     .eq("email", to)
     .maybeSingle();
-  // 42P01 = table not migrated yet on this environment: nothing is suppressed.
-  if (supErr && supErr.code !== "42P01") return { status: "failed", error: "Couldn't check the address against bounces" };
+  // Table not migrated yet on this environment: nothing is suppressed.
+  if (supErr && !isMissingTable(supErr)) return { status: "failed", error: "Couldn't check the address against bounces" };
   if (suppressed) {
     const when = String(suppressed.created_at).slice(0, 10);
     return {

@@ -8,6 +8,7 @@ import { formatDateTime, formatDay } from "@/lib/dates";
 import type { Invoice, InvoiceInstallment, InvoiceLineItem, PaymentEvent, PaymentOutcome } from "../types";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
+import { isMissingTable } from "@/lib/db-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -49,9 +50,9 @@ export default async function InvoiceDetailPage({
     ]);
   if (error || !data) notFound();
   if (itemsError) throw itemsError;
-  // 42P01 = migration 0022 not run on this environment yet: no payment history.
-  if (eventsError && eventsError.code !== "42P01") throw eventsError;
-  if (scheduleError && scheduleError.code !== "42P01") throw scheduleError;
+  // Missing table = migration 0022 not run on this environment yet: no payment history.
+  if (eventsError && !isMissingTable(eventsError)) throw eventsError;
+  if (scheduleError && !isMissingTable(scheduleError)) throw scheduleError;
   const events = (eventRows ?? []) as PaymentEvent[];
   const installments = (scheduleRows ?? []) as InvoiceInstallment[];
   const partlyPaid = installments.some((i) => i.status === "paid");
