@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatDay } from "@/lib/dates";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { presignGet, r2Configured } from "@/lib/r2";
@@ -149,7 +150,7 @@ export default async function CollectionDetailPage({
   const base = `/admin/galleries/${collection.id}`;
   const coverThumb = coverId ? thumbs.get(coverId) : undefined;
   const published = collection.status === "published";
-  const dateLabel = collection.event_date ?? "No date";
+  const dateLabel = collection.event_date ? formatDay(collection.event_date) : "No date";
   const uploadedCount = assets.filter((a) => a.status === "uploaded").length;
 
   const activeAssets = activeSet ? assets.filter((a) => a.set_id === activeSet.id) : [];
