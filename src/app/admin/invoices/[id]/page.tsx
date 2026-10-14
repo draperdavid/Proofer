@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteInvoice, updateInvoice, updateInvoiceStatus } from "../actions";
 import { LineItemsEditor } from "../line-items-editor";
 import { formatCents } from "../money";
+import { formatDateTime } from "@/lib/dates";
 import type { Invoice, InvoiceLineItem, PaymentEvent, PaymentOutcome } from "../types";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
@@ -77,7 +78,7 @@ export default async function InvoiceDetailPage({
       {invoice.status === "paid" && invoice.paid_at && (
         <p>
           Paid {formatCents(invoice.amount_paid_cents ?? 0, invoice.currency)} on{" "}
-          {new Date(invoice.paid_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} via Stripe.
+          {formatDateTime(invoice.paid_at)} via Stripe.
         </p>
       )}
 
@@ -149,7 +150,7 @@ export default async function InvoiceDetailPage({
             <tbody>
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td>{new Date(e.received_at).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</td>
+                  <td>{formatDateTime(e.received_at)}</td>
                   <td>
                     {e.type}
                     {e.livemode ? "" : " (test)"}

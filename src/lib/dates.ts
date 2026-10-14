@@ -17,3 +17,12 @@ export function formatDay(day: string, withYear = true): string {
 export function todayISO(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
+
+// Timestamps render on the server (UTC on Workers), so name the zone. Single
+// operator in Georgia.
+export const BUSINESS_TIME_ZONE = "America/New_York";
+
+// "2026-10-14T15:57:00Z" -> "Oct 14, 2026, 11:57 AM" in the business time zone.
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: BUSINESS_TIME_ZONE });
+}
