@@ -136,7 +136,7 @@ export default async function AdminHome({ searchParams }: { searchParams: Promis
   const keep = `view=${viewParam}${showArchived ? "&archived=1" : ""}`;
 
   return (
-    <main className="fluid fluid-r projects-home">
+    <main className="fluid projects-home">
       <header className="ph-head">
         <div>
           <span className="ph-date">{dateLabel}</span>
