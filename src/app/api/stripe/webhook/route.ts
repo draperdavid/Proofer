@@ -52,6 +52,7 @@ export async function POST(req: Request) {
     p_type: event.type,
     p_livemode: event.livemode,
     p_invoice_id: invoiceId,
+    p_installment_id: p.installmentId,
     p_session_id: p.sessionId,
     p_payment_intent_id: p.paymentIntentId,
     p_amount_cents: p.amountCents,
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "not recorded" }, { status: 500 });
   }
 
-  if (outcome !== "paid" && outcome !== "recorded" && outcome !== "duplicate") {
+  if (!["paid", "installment_paid", "recorded", "duplicate"].includes(String(outcome))) {
     // Money arrived for an invoice that couldn't take it. The audit row is
     // stored; this surfaces it in the Worker logs / Sentry too.
     console.error("stripe webhook: payment needs attention", event.id, event.type, outcome, invoiceId);

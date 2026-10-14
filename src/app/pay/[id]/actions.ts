@@ -14,7 +14,7 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
-import type { Invoice } from "@/app/admin/invoices/types";
+import type { Invoice, InvoiceInstallment } from "@/app/admin/invoices/types";
 
 export async function createCheckoutSession(invoiceId: string) {
   const db = supabaseAdmin();
@@ -34,6 +34,20 @@ export async function createCheckoutSession(invoiceId: string) {
     throw new Error("Invoice total must be greater than zero");
   }
 
+  // With a payment schedule (2.4) the client pays the earliest unpaid
+  // installment, for exactly its stored amount; the webhook checks it again.
+  const { data: schedule, error: scheduleError } = await db
+    .from("invoice_installments")
+    .select("id, label, amount_cents, status, position")
+    .eq("invoice_id", invoice.id)
+    .order("position", { ascending: true });
+  // 42P01 = migration 0023 not run here yet: no schedules exist.
+  if (scheduleError && scheduleError.code !== "42P01") throw scheduleError;
+  const installments = (schedule ?? []) as Pick<InvoiceInstallment, "id" | "label" | "amount_cents" | "status" | "position">[];
+  const next = installments.find((i) => i.status === "unpaid") ?? null;
+  if (installments.length > 0 && !next) throw new Error("Every payment on this invoice is already made");
+
+  const title = invoice.projects?.title ? `Invoice — ${invoice.projects.title}` : "Invoice";
   const baseUrl = env.appBaseUrl();
   const session = await stripe().checkout.sessions.create({
     mode: "payment",
@@ -41,25 +55,22 @@ export async function createCheckoutSession(invoiceId: string) {
       {
         price_data: {
           currency: invoice.currency,
-          product_data: {
-            name: invoice.projects?.title ? `Invoice — ${invoice.projects.title}` : "Invoice",
-          },
-          unit_amount: invoice.total_cents,
+          product_data: { name: next ? `${title} (${next.label})` : title },
+          unit_amount: next ? next.amount_cents : invoice.total_cents,
         },
         quantity: 1,
       },
     ],
     client_reference_id: invoice.id,
-    metadata: { invoice_id: invoice.id },
+    metadata: next ? { invoice_id: invoice.id, installment_id: next.id } : { invoice_id: invoice.id },
     success_url: `${baseUrl}/pay/${invoice.id}/success`,
     cancel_url: `${baseUrl}/pay/${invoice.id}`,
   });
   if (!session.url) throw new Error("Stripe did not return a Checkout URL");
 
-  const { error: updateError } = await db
-    .from("invoices")
-    .update({ stripe_checkout_session_id: session.id })
-    .eq("id", invoice.id);
+  const { error: updateError } = next
+    ? await db.from("invoice_installments").update({ stripe_checkout_session_id: session.id }).eq("id", next.id)
+    : await db.from("invoices").update({ stripe_checkout_session_id: session.id }).eq("id", invoice.id);
   if (updateError) throw updateError;
 
   redirect(session.url);

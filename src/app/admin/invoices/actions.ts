@@ -12,7 +12,14 @@ import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { onInvoiceSent } from "@/lib/email/triggers";
-import { computeInvoiceTotals, dollarsToCents, type LineItemInput } from "./money";
+import {
+  computeInvoiceTotals,
+  computeSchedule,
+  dollarsToCents,
+  type InstallmentPlan,
+  type LineItemInput,
+  type ScheduleRowInput,
+} from "./money";
 import type { DiscountType, InvoiceStatus } from "./types";
 
 function str(raw: FormDataEntryValue | null): string | null {
@@ -60,6 +67,30 @@ function parseLineItems(raw: FormDataEntryValue | null): LineItemInput[] {
   });
 }
 
+// Empty / missing = pay in full. Otherwise rows for computeSchedule (2.4).
+function parseSchedule(raw: FormDataEntryValue | null): ScheduleRowInput[] | null {
+  if (!raw || String(raw).trim() === "") return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw));
+  } catch {
+    throw new Error("Invalid payment schedule");
+  }
+  if (!Array.isArray(parsed)) throw new Error("Invalid payment schedule");
+  if (parsed.length === 0) return null;
+  if (parsed.length > 12) throw new Error("A payment schedule can have at most 12 payments");
+  return parsed.map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const due = typeof r.due_date === "string" ? r.due_date.trim() : "";
+    if (due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) throw new Error("Invalid due date in the payment schedule");
+    return {
+      label: typeof r.label === "string" ? r.label : "",
+      amount: typeof r.amount === "string" ? r.amount : "",
+      due_date: due || null,
+    };
+  });
+}
+
 function invoiceFields(formData: FormData) {
   const projectId = str(formData.get("project_id"));
   if (!projectId) throw new Error("Project is required");
@@ -70,6 +101,7 @@ function invoiceFields(formData: FormData) {
   const discountValue = Math.max(0, num(formData.get("discount_value")));
   const taxRate = Math.max(0, num(formData.get("tax_rate")));
   const lineItems = parseLineItems(formData.get("line_items_json"));
+  const schedule = parseSchedule(formData.get("schedule_json"));
 
   return {
     project_id: projectId,
@@ -80,6 +112,7 @@ function invoiceFields(formData: FormData) {
     tax_rate: taxRate,
     notes: str(formData.get("notes")),
     lineItems,
+    schedule,
   };
 }
 
@@ -106,14 +139,58 @@ async function replaceLineItems(
   if (insertError) throw insertError;
 }
 
+// Rewrites the schedule only when it actually changed, so the installment ids
+// behind a client's open Checkout page stay valid across unrelated edits.
+// The database refuses this once any installment is paid (0023).
+async function replaceInstallments(
+  db: ReturnType<typeof supabaseAdmin>,
+  invoiceId: string,
+  plan: InstallmentPlan[]
+) {
+  const { data: current, error: readError } = await db
+    .from("invoice_installments")
+    .select("label, amount_cents, due_date, position")
+    .eq("invoice_id", invoiceId)
+    .order("position", { ascending: true });
+  // 42P01 = migration 0023 not run here yet: fine as long as no schedule is asked for.
+  if (readError?.code === "42P01" && plan.length === 0) return;
+  if (readError) throw readError;
+  const same =
+    (current ?? []).length === plan.length &&
+    (current ?? []).every(
+      (c, i) => c.label === plan[i].label && c.amount_cents === plan[i].amount_cents && c.due_date === plan[i].due_date
+    );
+  if (same) return;
+
+  const { error: deleteError } = await db.from("invoice_installments").delete().eq("invoice_id", invoiceId);
+  if (deleteError) throw deleteError;
+  if (plan.length === 0) return;
+  const { error: insertError } = await db
+    .from("invoice_installments")
+    .insert(plan.map((p, i) => ({ invoice_id: invoiceId, position: i, ...p })));
+  if (insertError) throw insertError;
+}
+
+async function hasPayments(db: ReturnType<typeof supabaseAdmin>, invoiceId: string): Promise<boolean> {
+  const { count, error } = await db
+    .from("invoice_installments")
+    .select("id", { count: "exact", head: true })
+    .eq("invoice_id", invoiceId)
+    .eq("status", "paid");
+  if (error?.code === "42P01") return false;
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
 export async function createInvoice(formData: FormData) {
   await requireAdmin();
-  const { lineItems, ...fields } = invoiceFields(formData);
+  const { lineItems, schedule, ...fields } = invoiceFields(formData);
   const totals = computeInvoiceTotals(lineItems, {
     discountType: fields.discount_type,
     discountValue: fields.discount_value,
     taxRate: fields.tax_rate,
   });
+  const plan = schedule ? computeSchedule(totals.totalCents, schedule) : [];
 
   const db = supabaseAdmin();
   const { data, error } = await db
@@ -130,6 +207,7 @@ export async function createInvoice(formData: FormData) {
   if (error) throw error;
 
   await replaceLineItems(db, data.id, lineItems);
+  await replaceInstallments(db, data.id, plan);
 
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/projects/${fields.project_id}`);
@@ -138,12 +216,13 @@ export async function createInvoice(formData: FormData) {
 
 export async function updateInvoice(id: string, formData: FormData) {
   await requireAdmin();
-  const { lineItems, ...fields } = invoiceFields(formData);
+  const { lineItems, schedule, ...fields } = invoiceFields(formData);
   const totals = computeInvoiceTotals(lineItems, {
     discountType: fields.discount_type,
     discountValue: fields.discount_value,
     taxRate: fields.tax_rate,
   });
+  const plan = schedule ? computeSchedule(totals.totalCents, schedule) : [];
 
   const db = supabaseAdmin();
   const { data: existing, error: existingError } = await db
@@ -153,6 +232,7 @@ export async function updateInvoice(id: string, formData: FormData) {
     .single();
   if (existingError || !existing) throw existingError ?? new Error("Invoice not found");
   if (existing.status === "paid") throw new Error("A paid invoice cannot be edited");
+  if (await hasPayments(db, id)) throw new Error("A payment has been made on this invoice, so it can't be edited");
 
   const { error } = await db
     .from("invoices")
@@ -168,6 +248,7 @@ export async function updateInvoice(id: string, formData: FormData) {
   if (error) throw error;
 
   await replaceLineItems(db, id, lineItems);
+  await replaceInstallments(db, id, plan);
 
   revalidatePath("/admin/invoices");
   revalidatePath(`/admin/invoices/${id}`);
@@ -201,6 +282,7 @@ export async function updateInvoiceStatus(
     .single();
   if (existingError || !existing) throw existingError ?? new Error("Invoice not found");
   if (existing.status === "paid") throw new Error("A paid invoice's status cannot be changed here");
+  if (await hasPayments(db, id)) throw new Error("A payment has been made on this invoice, so its status can't be changed");
 
   const { error } = await db
     .from("invoices")

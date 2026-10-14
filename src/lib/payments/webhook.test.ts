@@ -31,6 +31,7 @@ test("a paid checkout.session.completed marks the invoice paid", () => {
   const p = paymentFromEvent(sessionEvent("checkout.session.completed", {}));
   assert.deepEqual(p, {
     invoiceId: INVOICE,
+    installmentId: null,
     sessionId: "cs_test_1",
     paymentIntentId: "pi_1",
     amountCents: 53500,
@@ -96,6 +97,7 @@ test("charge.refunded carries the payment intent and refunded amount only", () =
   } as unknown as Stripe.Event;
   assert.deepEqual(paymentFromEvent(event), {
     invoiceId: null,
+    installmentId: null,
     sessionId: null,
     paymentIntentId: "pi_1",
     amountCents: 1000,
@@ -108,4 +110,27 @@ test("other event types are ignored", () => {
   const event = { id: "evt_3", type: "customer.created", livemode: false, data: { object: {} } } as unknown as Stripe.Event;
   assert.equal(paymentFromEvent(event).markPaid, false);
   assert.equal(paymentFromEvent(event).invoiceId, null);
+});
+
+test("an installment session carries its installment id", () => {
+  const INST = "0b9c1f7e-5a2d-4c3b-9e8f-7a6b5c4d3e2f";
+  const p = paymentFromEvent(
+    sessionEvent("checkout.session.completed", { metadata: { invoice_id: INVOICE, installment_id: INST.toUpperCase() } })
+  );
+  assert.equal(p.installmentId, INST);
+  assert.equal(p.markPaid, true);
+});
+
+test("a malformed installment id is dropped, and never kept without an invoice", () => {
+  const bad = paymentFromEvent(
+    sessionEvent("checkout.session.completed", { metadata: { invoice_id: INVOICE, installment_id: "nope" } })
+  );
+  assert.equal(bad.installmentId, null);
+  const orphan = paymentFromEvent(
+    sessionEvent("checkout.session.completed", {
+      metadata: { installment_id: "0b9c1f7e-5a2d-4c3b-9e8f-7a6b5c4d3e2f" },
+    })
+  );
+  assert.equal(orphan.invoiceId, null);
+  assert.equal(orphan.installmentId, null);
 });

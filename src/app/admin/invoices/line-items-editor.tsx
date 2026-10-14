@@ -6,10 +6,28 @@
 // `line_items_json` hidden field on submit rather than trusting anything
 // calculated in the browser.
 import { useState } from "react";
-import { computeInvoiceTotals, formatCents } from "./money";
-import type { DiscountType, InvoiceLineItem } from "./types";
+import { computeInvoiceTotals, computeSchedule, formatCents, type InstallmentPlan } from "./money";
+import type { DiscountType, InvoiceInstallment, InvoiceLineItem } from "./types";
 
 type Row = { description: string; quantity: string; unit_price: string };
+type ScheduleRow = { label: string; amount: string; due_date: string };
+
+const DEFAULT_SCHEDULE: ScheduleRow[] = [
+  { label: "Deposit", amount: "30%", due_date: "" },
+  { label: "Balance", amount: "", due_date: "" },
+];
+
+// Saved installments come back as dollar amounts; the balance row is implied.
+function toScheduleRows(installments: InvoiceInstallment[]): ScheduleRow[] {
+  return installments
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((i, idx, all) => ({
+      label: i.label,
+      amount: idx === all.length - 1 ? "" : (i.amount_cents / 100).toFixed(2),
+      due_date: i.due_date ?? "",
+    }));
+}
 
 function toRows(items: InvoiceLineItem[]): Row[] {
   if (items.length === 0) return [{ description: "", quantity: "1", unit_price: "0" }];
@@ -25,11 +43,13 @@ function toRows(items: InvoiceLineItem[]): Row[] {
 
 export function LineItemsEditor({
   items,
+  schedule,
   discountType,
   discountValue,
   taxRate,
 }: {
   items: InvoiceLineItem[];
+  schedule: InvoiceInstallment[];
   discountType: DiscountType;
   discountValue: number;
   taxRate: number;
@@ -38,6 +58,21 @@ export function LineItemsEditor({
   const [discType, setDiscType] = useState<DiscountType>(discountType);
   const [discValue, setDiscValue] = useState(String(discountValue));
   const [tax, setTax] = useState(String(taxRate));
+  const [split, setSplit] = useState(schedule.length > 0);
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>(() =>
+    schedule.length > 0 ? toScheduleRows(schedule) : DEFAULT_SCHEDULE
+  );
+
+  function updateScheduleRow(i: number, patch: Partial<ScheduleRow>) {
+    setScheduleRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function addScheduleRow() {
+    // New payments go before the balance, which always stays last.
+    setScheduleRows((prev) => [...prev.slice(0, -1), { label: "", amount: "", due_date: "" }, prev[prev.length - 1]]);
+  }
+  function removeScheduleRow(i: number) {
+    setScheduleRows((prev) => (prev.length > 2 ? prev.filter((_, idx) => idx !== i) : prev));
+  }
 
   function updateRow(i: number, patch: Partial<Row>) {
     setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
@@ -63,6 +98,17 @@ export function LineItemsEditor({
     taxRate: Number(tax) || 0,
   });
 
+  // Same schedule math as the server, which recomputes it on save.
+  let plan: InstallmentPlan[] = [];
+  let scheduleError: string | null = null;
+  if (split) {
+    try {
+      plan = computeSchedule(totals.totalCents, scheduleRows);
+    } catch (e) {
+      scheduleError = e instanceof Error ? e.message : "Invalid payment schedule";
+    }
+  }
+
   const lineItemsJson = JSON.stringify(
     previewItems.map((item) => ({
       description: item.description,
@@ -74,6 +120,7 @@ export function LineItemsEditor({
   return (
     <div>
       <input type="hidden" name="line_items_json" value={lineItemsJson} />
+      <input type="hidden" name="schedule_json" value={split ? JSON.stringify(scheduleRows) : ""} />
 
       <table>
         <thead>
@@ -194,6 +241,65 @@ export function LineItemsEditor({
           </tr>
         </tbody>
       </table>
+
+      <h2>Payment schedule</h2>
+      <div>
+        <label>
+          <input type="radio" name="payment_plan" checked={!split} onChange={() => setSplit(false)} /> Pay in full
+        </label>{" "}
+        <label>
+          <input type="radio" name="payment_plan" checked={split} onChange={() => setSplit(true)} /> Split into payments
+        </label>
+      </div>
+      {split && (
+        <>
+          <table>
+            <thead>
+              <tr>
+                <th>Payment</th>
+                <th>Amount (30% or 150)</th>
+                <th>Due date</th>
+                <th>Comes to</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {scheduleRows.map((row, i) => {
+                const isBalance = i === scheduleRows.length - 1;
+                return (
+                  <tr key={i}>
+                    <td>
+                      <input type="text" value={row.label} maxLength={80} onChange={(e) => updateScheduleRow(i, { label: e.target.value })} />
+                    </td>
+                    <td>
+                      {isBalance ? (
+                        "Whatever is left"
+                      ) : (
+                        <input type="text" value={row.amount} onChange={(e) => updateScheduleRow(i, { amount: e.target.value })} />
+                      )}
+                    </td>
+                    <td>
+                      <input type="date" value={row.due_date} onChange={(e) => updateScheduleRow(i, { due_date: e.target.value })} />
+                    </td>
+                    <td>{plan[i] ? formatCents(plan[i].amount_cents) : "—"}</td>
+                    <td>
+                      {!isBalance && (
+                        <button type="button" onClick={() => removeScheduleRow(i)} disabled={scheduleRows.length <= 2}>
+                          Remove
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <button type="button" onClick={addScheduleRow} disabled={scheduleRows.length >= 12}>
+            + Add payment
+          </button>
+          {scheduleError && <p className="err">{scheduleError}</p>}
+        </>
+      )}
     </div>
   );
 }

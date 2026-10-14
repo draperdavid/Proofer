@@ -37,6 +37,7 @@ export type InvoiceLineItem = {
 
 export type PaymentOutcome =
   | "paid"
+  | "installment_paid"
   | "recorded"
   | "already_paid"
   | "not_payable"
@@ -45,6 +46,7 @@ export type PaymentOutcome =
 
 export type PaymentEvent = {
   id: string;
+  installment_id: string | null;
   stripe_event_id: string;
   type: string;
   livemode: boolean;
@@ -52,4 +54,17 @@ export type PaymentEvent = {
   currency: string | null;
   outcome: PaymentOutcome;
   received_at: string;
+};
+
+// One payment in a schedule (2.4, migration 0023). Invoices without rows are
+// paid in full in one go.
+export type InvoiceInstallment = {
+  id: string;
+  invoice_id: string;
+  position: number;
+  label: string;
+  amount_cents: number;
+  due_date: string | null;
+  status: "unpaid" | "paid";
+  paid_at: string | null;
 };

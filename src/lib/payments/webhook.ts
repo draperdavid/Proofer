@@ -6,6 +6,8 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 export type EventPayment = {
   invoiceId: string | null;
+  // Set when the session paid one installment of a schedule (2.4).
+  installmentId: string | null;
   sessionId: string | null;
   paymentIntentId: string | null;
   amountCents: number | null;
@@ -16,6 +18,7 @@ export type EventPayment = {
 
 const NONE: EventPayment = {
   invoiceId: null,
+  installmentId: null,
   sessionId: null,
   paymentIntentId: null,
   amountCents: null,
@@ -35,6 +38,11 @@ function invoiceIdOf(session: Stripe.Checkout.Session): string | null {
   return meta.toLowerCase();
 }
 
+function installmentIdOf(session: Stripe.Checkout.Session): string | null {
+  const id = session.metadata?.installment_id ?? null;
+  return id && UUID_PATTERN.test(id) ? id.toLowerCase() : null;
+}
+
 export function paymentFromEvent(event: Stripe.Event): EventPayment {
   switch (event.type) {
     case "checkout.session.completed":
@@ -52,6 +60,7 @@ export function paymentFromEvent(event: Stripe.Event): EventPayment {
           event.type === "checkout.session.async_payment_succeeded");
       return {
         invoiceId,
+        installmentId: invoiceId === null ? null : installmentIdOf(s),
         sessionId: s.id,
         paymentIntentId: idOf(s.payment_intent),
         amountCents: s.amount_total ?? null,

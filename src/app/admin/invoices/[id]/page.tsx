@@ -4,8 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { deleteInvoice, updateInvoice, updateInvoiceStatus } from "../actions";
 import { LineItemsEditor } from "../line-items-editor";
 import { formatCents } from "../money";
-import { formatDateTime } from "@/lib/dates";
-import type { Invoice, InvoiceLineItem, PaymentEvent, PaymentOutcome } from "../types";
+import { formatDateTime, formatDay } from "@/lib/dates";
+import type { Invoice, InvoiceInstallment, InvoiceLineItem, PaymentEvent, PaymentOutcome } from "../types";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 
@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 // Outcomes where money reached Stripe but the invoice couldn't take it.
 const NEEDS_ATTENTION: Partial<Record<PaymentOutcome, string>> = {
   already_paid: "Paid again after this invoice was already paid. Refund the extra payment in Stripe.",
-  not_payable: "Paid while this invoice wasn't sent (draft or void). Check it in Stripe.",
+  not_payable:
+    "A payment arrived that this invoice couldn't take (it wasn't sent, or the payment didn't match its schedule). Check it in Stripe.",
   amount_mismatch: "Stripe's amount didn't match this invoice's total, so it wasn't marked paid. Check it in Stripe.",
 };
 
@@ -31,8 +32,12 @@ export default async function InvoiceDetailPage({
   const { id } = await params;
 
   const db = supabaseAdmin();
-  const [{ data, error }, { data: items, error: itemsError }, { data: eventRows, error: eventsError }] =
-    await Promise.all([
+  const [
+    { data, error },
+    { data: items, error: itemsError },
+    { data: eventRows, error: eventsError },
+    { data: scheduleRows, error: scheduleError },
+  ] = await Promise.all([
       db.from("invoices").select("*, projects(id, title), contacts(id, name)").eq("id", id).single(),
       db.from("invoice_line_items").select("*").eq("invoice_id", id).order("position", { ascending: true }),
       db
@@ -40,17 +45,22 @@ export default async function InvoiceDetailPage({
         .select("id, stripe_event_id, type, livemode, amount_cents, currency, outcome, received_at")
         .eq("invoice_id", id)
         .order("received_at", { ascending: true }),
+      db.from("invoice_installments").select("*").eq("invoice_id", id).order("position", { ascending: true }),
     ]);
   if (error || !data) notFound();
   if (itemsError) throw itemsError;
   // 42P01 = migration 0022 not run on this environment yet: no payment history.
   if (eventsError && eventsError.code !== "42P01") throw eventsError;
+  if (scheduleError && scheduleError.code !== "42P01") throw scheduleError;
   const events = (eventRows ?? []) as PaymentEvent[];
+  const installments = (scheduleRows ?? []) as InvoiceInstallment[];
+  const partlyPaid = installments.some((i) => i.status === "paid");
   const alerts = events.filter((e) => NEEDS_ATTENTION[e.outcome]);
 
   const invoice = data as unknown as InvoiceWithRelations;
   const lineItems = (items ?? []) as InvoiceLineItem[];
-  const editable = invoice.status !== "paid";
+  // Any payment freezes the invoice (enforced in the database too, 0022/0023).
+  const editable = invoice.status !== "paid" && !partlyPaid;
 
   const updateThisInvoice = updateInvoice.bind(null, invoice.id);
   const deleteThisInvoice = deleteInvoice.bind(null, invoice.id, invoice.project_id);
@@ -88,6 +98,32 @@ export default async function InvoiceDetailPage({
         </p>
       ))}
 
+      {installments.length > 0 && !editable && (
+        <>
+          <h2>Payment schedule</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Payment</th>
+                <th>Due</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {installments.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.label}</td>
+                  <td>{i.due_date ? formatDay(i.due_date) : "—"}</td>
+                  <td>{formatCents(i.amount_cents, invoice.currency)}</td>
+                  <td>{i.status === "paid" && i.paid_at ? `Paid ${formatDateTime(i.paid_at)}` : "Unpaid"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
       {invoice.status === "sent" && (
         <p>
           Pay link: <ClientLink path={`/pay/${invoice.id}`} />
@@ -105,6 +141,7 @@ export default async function InvoiceDetailPage({
             </div>
             <LineItemsEditor
               items={lineItems}
+              schedule={installments}
               discountType={invoice.discount_type}
               discountValue={invoice.discount_value}
               taxRate={invoice.tax_rate}

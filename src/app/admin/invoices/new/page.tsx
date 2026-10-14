@@ -50,7 +50,7 @@ export default async function NewInvoicePage({
           <label htmlFor="due_date">Due date</label>
           <input id="due_date" name="due_date" type="date" />
         </div>
-        <LineItemsEditor items={[]} discountType="none" discountValue={0} taxRate={0} />
+        <LineItemsEditor items={[]} schedule={[]} discountType="none" discountValue={0} taxRate={0} />
         <div>
           <label htmlFor="notes">Notes</label>
           <textarea id="notes" name="notes" />
