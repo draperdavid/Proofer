@@ -18,7 +18,7 @@ export function paymentBadge(invoices: ProjectDocs["invoices"], today: string): 
   const sent = live.filter((i) => i.status === "sent");
   if (sent.some((i) => i.due_date !== null && i.due_date < today)) return { tone: "red", label: "Past due" };
   if (sent.length > 0) return { tone: "blue", label: "Unpaid" };
-  if (live.some((i) => i.status === "draft")) return { tone: "grey", label: "Invoice draft" };
+  if (live.some((i) => i.status === "draft")) return { tone: "blue", label: "Invoice draft" };
   return { tone: "green", label: "Paid" };
 }
 
@@ -26,7 +26,7 @@ export function contractBadge(contracts: ProjectDocs["contracts"]): Badge | null
   const live = contracts.filter((c) => c.status !== "canceled");
   if (live.some((c) => c.status === "awaiting_signature")) return { tone: "blue", label: "Awaiting signature" };
   if (live.some((c) => c.status === "in_progress")) return { tone: "amber", label: "Signing in progress" };
-  if (live.some((c) => c.status === "draft")) return { tone: "grey", label: "Contract draft" };
+  if (live.some((c) => c.status === "draft")) return { tone: "blue", label: "Contract draft" };
   if (live.some((c) => c.status === "completed")) return { tone: "green", label: "Signed" };
   return null;
 }

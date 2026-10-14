@@ -555,3 +555,5 @@ button:focus-visible, .btn:focus-visible, a:focus-visible { outline: none; box-s
 .newmenu { flex: none; }
 .newmenu > summary.btn { padding: 6px 14px; }
 .newmenu .menu-pop { right: 0; min-width: 210px; }
+/* Stage pills: a soft ink tint (the theme accent), not gray. */
+.st.stage { --c: var(--acc); background: color-mix(in srgb, var(--acc) 9%, var(--s1)); border-color: color-mix(in srgb, var(--acc) 35%, transparent); color: var(--acc); }

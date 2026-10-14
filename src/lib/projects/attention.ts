@@ -5,7 +5,9 @@
 // Every item links to the record where the action lives. Nothing here sends
 // anything: reminders by email come once email is set up.
 
-export type Tone = "red" | "amber" | "blue" | "grey";
+// Color key: red = money is late, amber = waiting on the client, blue = for
+// David to do (new, unpaid, drafts to finish), green = good news (sessions).
+export type Tone = "red" | "amber" | "blue" | "green" | "grey";
 export type Split = "needs" | "waiting" | "week";
 
 export type AttentionItem = {
@@ -82,7 +84,7 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
     if (!p) continue;
     const href = `/admin/invoices/${inv.id}`;
     if (inv.status === "draft") {
-      items.push({ split: "needs", key: `inv-draft-${inv.id}`, projectId: p.id, title: p.title, tone: "grey", label: "Invoice draft", detail: `${dollars(inv.total_cents)} · not sent yet`, when: ago(inv.created_at, today), action: "Finish", href, sort: 3 });
+      items.push({ split: "needs", key: `inv-draft-${inv.id}`, projectId: p.id, title: p.title, tone: "blue", label: "Invoice draft", detail: `${dollars(inv.total_cents)} · not sent yet`, when: ago(inv.created_at, today), action: "Finish", href, sort: 3 });
       continue;
     }
     if (inv.status !== "sent") continue;
@@ -105,7 +107,7 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
     if (!p) continue;
     const href = `/admin/contracts/${c.id}`;
     if (c.status === "draft") {
-      items.push({ split: "needs", key: `con-draft-${c.id}`, projectId: p.id, title: p.title, tone: "grey", label: "Contract draft", detail: "Not sent yet", when: ago(c.created_at, today), action: "Finish", href, sort: 3 });
+      items.push({ split: "needs", key: `con-draft-${c.id}`, projectId: p.id, title: p.title, tone: "blue", label: "Contract draft", detail: "Not sent yet", when: ago(c.created_at, today), action: "Finish", href, sort: 3 });
     } else if (c.status === "awaiting_signature") {
       const sent = c.sent_at ?? c.created_at;
       items.push({ split: "waiting", key: `con-out-${c.id}`, projectId: p.id, title: p.title, tone: "amber", label: "Unsigned", detail: `Contract sent ${shortDay(sent)}`, when: ago(sent, today), action: "View contract", href, sort: 0 });
@@ -125,7 +127,7 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
       items.push({ split: "needs", key: `inq-${p.id}`, projectId: p.id, title: p.title, tone: "blue", label: "New inquiry", detail: p.event_date ? `Wants ${shortDay(p.event_date)}` : "No date yet", when: ago(p.created_at, today), action: "Open", href: `/admin/projects/${p.id}`, sort: 2 });
     }
     if (p.event_date && p.event_date >= today && daysBetween(today, p.event_date) <= 7) {
-      items.push({ split: "week", key: `wk-${p.id}`, projectId: p.id, title: p.title, tone: "grey", label: "Session", detail: p.location ? `${shortDay(p.event_date)} · ${p.location}` : shortDay(p.event_date), when: daysBetween(today, p.event_date) === 0 ? "Today" : shortDay(p.event_date), action: "Open", href: `/admin/projects/${p.id}`, sort: daysBetween(today, p.event_date) });
+      items.push({ split: "week", key: `wk-${p.id}`, projectId: p.id, title: p.title, tone: "green", label: "Session", detail: p.location ? `${shortDay(p.event_date)} · ${p.location}` : shortDay(p.event_date), when: daysBetween(today, p.event_date) === 0 ? "Today" : shortDay(p.event_date), action: "Open", href: `/admin/projects/${p.id}`, sort: daysBetween(today, p.event_date) });
     }
   }
 
