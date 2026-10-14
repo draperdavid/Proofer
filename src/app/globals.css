@@ -557,3 +557,43 @@ button:focus-visible, .btn:focus-visible, a:focus-visible { outline: none; box-s
 .newmenu .menu-pop { right: 0; min-width: 210px; }
 /* Stage pills: a soft ink tint (the theme accent), not gray. */
 .st.stage { --c: var(--acc); background: color-mix(in srgb, var(--acc) 9%, var(--s1)); border-color: color-mix(in srgb, var(--acc) 35%, transparent); color: var(--acc); }
+
+/* ------------------------------------------- app-wide restyle (C2, 2026-10-14) */
+/* Headings: plain system sans, bigger titles, no rule under the page title. */
+h1 { font-size: 28px; font-weight: 650; letter-spacing: -0.4px; border-bottom: 0; padding-bottom: 0; margin-bottom: var(--sp-5); }
+h2 { font-size: 20px; }
+/* Section labels inside pages (h3) read as small caps-ish labels. */
+main h3 { font-size: 12.5px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t2); }
+.board .colhead, .kbody, .attn h3 { text-transform: none; letter-spacing: 0; }
+
+/* Tables: divider rows, quiet uppercase headers, a soft hover. */
+th { font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--t2); padding: 10px 12px; border-bottom-color: var(--bd-hi); }
+td { padding: 12px; vertical-align: middle; }
+tbody tr:hover td { background: color-mix(in srgb, var(--s0) 60%, transparent); }
+td a { font-weight: 600; color: var(--t1); }
+td a:hover { color: var(--acc); }
+
+/* Inputs: 8px corners and a slightly stronger edge, matching the buttons. */
+input, select, textarea { border-radius: var(--r-lg); border-color: var(--bd-hi); background: var(--s1); }
+input[type="file"]::file-selector-button { border-radius: var(--r-lg); border-color: var(--bd-hi); font-weight: 600; }
+fieldset { border-radius: var(--r-lg); border-color: var(--bd); }
+
+/* No boxed cards: sections are separated by a hairline and space. */
+.card { background: none; border: 0; border-top: 1px solid var(--bd-hi); border-radius: 0; box-shadow: none; padding: var(--sp-4) 0; }
+.chip { font-size: 12.5px; font-weight: 500; color: var(--t2); background: transparent; border-color: var(--bd-hi); padding: 1px 9px; }
+.notice { border-radius: var(--r-lg); }
+.gcard { box-shadow: none; border-radius: 10px; }
+.gcard:hover { border-color: var(--bd-hi); transform: none; }
+.themecard { border-radius: 10px; }
+.menu-pop, .sheet { border-radius: 10px; }
+.pill { font-size: 12.5px; padding: 2px 10px; }
+
+/* Back links and page headers line up with the Projects page. */
+.pagehead { margin-bottom: var(--sp-5); }
+.pagehead h1, .doctitle h1 { font-size: 28px; }
+
+/* Public pages (pay, sign, book, questionnaire, inquiry): no floating box,
+   just a calm centered column on the page color. */
+body > main:not(.wide) { background: none; border: 0; box-shadow: none; border-radius: 0; margin: 48px auto 80px; }
+body > main:not(.wide) h1 { font-size: 28px; }
+body > main:not(.wide) button[type="submit"]:hover { filter: brightness(0.9); }
