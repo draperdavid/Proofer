@@ -9,6 +9,7 @@ test("allow-list entries are stored lowercased and trimmed", () => {
 
 test("admin email matches regardless of case and surrounding space", () => {
   assert.equal(isAdminEmail("david.draper86@gmail.com"), true);
+  assert.equal(isAdminEmail("DavidMonroePhotos@gmail.com"), true);
   assert.equal(isAdminEmail("David.Draper86@Gmail.com"), true);
   assert.equal(isAdminEmail("  david.draper86@gmail.com "), true);
 });
