@@ -10,6 +10,7 @@ import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import { supabaseAdmin } from "@/lib/supabase";
 import { paymentFromEvent } from "@/lib/payments/webhook";
+import { onPaymentReceived } from "@/lib/email/triggers";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,10 @@ export async function POST(req: Request) {
     // Money arrived for an invoice that couldn't take it. The audit row is
     // stored; this surfaces it in the Worker logs / Sentry too.
     console.error("stripe webhook: payment needs attention", event.id, event.type, outcome, invoiceId);
+  }
+  // Receipt (2.5). Never throws; keyed on the event id so it goes out once.
+  if ((outcome === "paid" || outcome === "installment_paid") && invoiceId && p.amountCents !== null) {
+    await onPaymentReceived(event.id, invoiceId, p.amountCents);
   }
   return NextResponse.json({ received: true });
 }

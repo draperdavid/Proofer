@@ -1,7 +1,7 @@
 // Run with `npm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatDateTime, formatDay, todayISO } from "./dates.ts";
+import { businessTodayISO, formatDateTime, formatDay, todayISO } from "./dates.ts";
 
 test("formatDay shows the exact calendar day, never the day before", () => {
   assert.equal(formatDay("2026-11-14"), "Nov 14, 2026");
@@ -24,4 +24,9 @@ test("todayISO is a plain YYYY-MM-DD string", () => {
 test("formatDateTime shows Eastern time, not the server's UTC", () => {
   assert.equal(formatDateTime("2026-10-14T15:57:00Z"), "Oct 14, 2026, 11:57 AM");
   assert.equal(formatDateTime("2026-01-14T15:57:00Z"), "Jan 14, 2026, 10:57 AM");
+});
+
+test("businessTodayISO is the Eastern calendar day, even late at night UTC", () => {
+  assert.equal(businessTodayISO(new Date("2026-10-15T02:30:00Z")), "2026-10-14");
+  assert.equal(businessTodayISO(new Date("2026-10-15T12:00:00Z")), "2026-10-15");
 });

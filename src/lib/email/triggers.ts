@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase";
 import { env } from "@/lib/env";
 import { ADMIN_EMAILS } from "@/lib/auth/admins";
+import { businessTodayISO } from "@/lib/dates";
 import { sendTemplatedEmail } from "./send";
 import { isStageTemplate, isTemplateKey } from "./templates";
 import { absoluteUrl, formatCents, formatDate, idempotencyKeys, projectFields } from "./events";
@@ -115,6 +116,36 @@ export async function onInvoiceSent(invoiceId: string) {
       contactId: contact.id,
       projectId: (invoice.project_id as string | null) ?? null,
       idempotencyKey: idempotencyKeys.invoiceSent(invoice.id as string, Number(invoice.total_cents)),
+    });
+  });
+}
+
+// A verified Stripe payment was applied to an invoice (2.3 webhook): email
+// the client a receipt for the amount that just came through.
+export async function onPaymentReceived(stripeEventId: string, invoiceId: string, amountCents: number) {
+  await safely(`payment ${stripeEventId}`, async () => {
+    const { data: invoice, error } = await supabaseAdmin()
+      .from("invoices")
+      .select("id, contact_id, project_id")
+      .eq("id", invoiceId)
+      .single();
+    if (error || !invoice) throw error ?? new Error("Invoice not found");
+    const contact = await loadContact(invoice.contact_id as string | null);
+    if (!contact) return;
+
+    const base = await appBaseUrl();
+    await sendTemplatedEmail({
+      key: "payment_receipt",
+      to: contact.email ?? "",
+      fields: {
+        ...projectFields(contact.name, null),
+        "payment.amount": formatCents(amountCents),
+        "payment.date": formatDate(businessTodayISO()),
+        "invoice.link": absoluteUrl(base, `/pay/${invoice.id}`),
+      },
+      contactId: contact.id,
+      projectId: (invoice.project_id as string | null) ?? null,
+      idempotencyKey: idempotencyKeys.paymentReceipt(stripeEventId),
     });
   });
 }

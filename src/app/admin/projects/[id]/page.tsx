@@ -6,6 +6,9 @@ import { ProjectFields } from "../project-fields";
 import type { Project, ProjectStage } from "../types";
 import { formatCents } from "../../invoices/money";
 import type { Invoice } from "../../invoices/types";
+import { summarizeProjectMoney, type SummaryInstallment } from "@/lib/payments/summary";
+import { businessTodayISO } from "@/lib/dates";
+import { isMissingTable } from "@/lib/db-errors";
 import { generateContract } from "../../contracts/actions";
 import type { Contract, ContractTemplate } from "../../contracts/types";
 import { sendQuestionnaire } from "../../questionnaires/actions";
@@ -69,6 +72,19 @@ export default async function ProjectDetailPage({
   // Email history is a side panel: if its table isn't migrated yet, say so
   // instead of taking the whole project page down.
 
+  // Payment summary (2.5). Schedules live in invoice_installments (2.4).
+  const invoiceIds = ((invoices ?? []) as Invoice[]).map((i) => i.id);
+  let installments: SummaryInstallment[] = [];
+  if (invoiceIds.length > 0) {
+    const { data: rows, error: instError } = await db
+      .from("invoice_installments")
+      .select("invoice_id, amount_cents, due_date, status")
+      .in("invoice_id", invoiceIds);
+    if (instError && !isMissingTable(instError)) throw instError;
+    installments = (rows ?? []) as SummaryInstallment[];
+  }
+  const money = summarizeProjectMoney((invoices ?? []) as Invoice[], installments, businessTodayISO());
+
   const project = data as ProjectWithContact;
   const updateThisProject = updateProject.bind(null, project.id);
   const deleteThisProject = deleteProject.bind(null, project.id, project.contact_id);
@@ -94,6 +110,15 @@ export default async function ProjectDetailPage({
       </form>
 
       <h2>Invoices</h2>
+      {invoiceIds.length > 0 && (
+        <p>
+          Paid <strong>{formatCents(money.paidCents)}</strong> · Upcoming <strong>{formatCents(money.upcomingCents)}</strong>
+          {" · "}
+          <span className={money.pastDueCents > 0 ? "err" : undefined}>
+            Past due <strong>{formatCents(money.pastDueCents)}</strong>
+          </span>
+        </p>
+      )}
       <p>
         <Link href={`/admin/invoices/new?project_id=${project.id}`}>+ New invoice</Link>
       </p>

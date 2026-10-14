@@ -26,3 +26,8 @@ export const BUSINESS_TIME_ZONE = "America/New_York";
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: BUSINESS_TIME_ZONE });
 }
+
+// Today as "YYYY-MM-DD" in the business time zone (due dates are his days).
+export function businessTodayISO(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: BUSINESS_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
