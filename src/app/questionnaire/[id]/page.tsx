@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Questionnaire } from "@/app/admin/questionnaires/types";
 import { submitAnswers } from "./actions";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,7 @@ export default async function FillQuestionnairePage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>{questionnaire.projects?.title ?? "Questionnaire"}</h1>
       {errorParam === "limited" && <p className="err">Too many attempts. Please wait a few minutes and try again.</p>}
 
@@ -85,6 +87,7 @@ export default async function FillQuestionnairePage({
           <button type="submit">Submit</button>
         </form>
       )}
+      <BrandFooter />
     </main>
   );
 }

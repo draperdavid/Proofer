@@ -7,7 +7,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { env } from "@/lib/env";
 import { resend } from "@/lib/resend";
 import { TEMPLATES, type TemplateKey } from "./templates";
-import { isSendableEmail, renderEmail, unknownFields, type RenderedEmail } from "./render";
+import { isSendableEmail, renderEmail, unknownFields, wrapBranded, type RenderedEmail } from "./render";
+import { getBrand } from "@/lib/brand/brand";
 import { isMissingTable } from "@/lib/db-errors";
 
 export type SendResult =
@@ -44,7 +45,17 @@ export async function sendTemplatedEmail(opts: {
 }): Promise<SendResult | { status: "duplicate" }> {
   const to = opts.to.trim().toLowerCase();
   const template = await loadTemplate(opts.key);
-  const email: RenderedEmail = renderEmail(template, opts.fields);
+  const rendered: RenderedEmail = renderEmail(template, opts.fields);
+  // Brand frame (9.2): logo or business name on top, footer underneath.
+  const brand = await getBrand();
+  const email: RenderedEmail = {
+    ...rendered,
+    html: wrapBranded(rendered.html, {
+      businessName: brand.businessName,
+      logoUrl: brand.logoKey ? `${env.appBaseUrl().replace(/\/$/, "")}/brand/logo` : null,
+      footer: brand.footer,
+    }),
+  };
   const db = supabaseAdmin();
 
   const logRow = {
@@ -73,7 +84,7 @@ export async function sendTemplatedEmail(opts: {
     claimId = data.id as string;
   }
 
-  const result = await deliver(to, email);
+  const result = await deliver(to, email, brand.replyTo);
 
   const outcome = {
     status: result.status,
@@ -95,7 +106,7 @@ export async function sendTemplatedEmail(opts: {
   return result;
 }
 
-async function deliver(to: string, email: RenderedEmail): Promise<SendResult> {
+async function deliver(to: string, email: RenderedEmail, brandReplyTo: string | null = null): Promise<SendResult> {
   if (!isSendableEmail(to)) return { status: "failed", error: "Not a valid email address" };
   // Addresses that hard-bounced or reported spam are never mailed again until
   // David clears them (Phase 8.4); mailing them anyway hurts the domain.
@@ -117,7 +128,8 @@ async function deliver(to: string, email: RenderedEmail): Promise<SendResult> {
     return { status: "skipped", reason: "Resend isn't configured (RESEND_API_KEY / RESEND_FROM_EMAIL)" };
   }
   try {
-    const replyTo = env.resendReplyTo();
+    // Brand setting first, then the RESEND_REPLY_TO fallback.
+    const replyTo = brandReplyTo ?? env.resendReplyTo();
     const { data, error } = await resend().emails.send({
       from: env.resendFrom(),
       to: [to],

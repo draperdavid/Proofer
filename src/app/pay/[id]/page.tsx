@@ -10,6 +10,7 @@ import { formatDay } from "@/lib/dates";
 import { formatSessionWhen } from "@/lib/booking/book";
 import { createCheckoutSession } from "./actions";
 import { isMissingTable } from "@/lib/db-errors";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ export default async function PayInvoicePage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>{invoice.projects?.title ?? "Invoice"}</h1>
       {errorKey && PAY_ERRORS[errorKey] && <p className="err">{PAY_ERRORS[errorKey]}</p>}
       {booking && bookingType && (
@@ -160,6 +162,7 @@ export default async function PayInvoicePage({
           </button>
         </form>
       )}
+      <BrandFooter />
     </main>
   );
 }

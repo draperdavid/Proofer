@@ -63,3 +63,14 @@ test("every built-in template only uses its own fields, and samples fill them al
   assert.equal(isTemplateKey("gallery_ready"), true);
   assert.equal(isTemplateKey("toString"), false);
 });
+
+test("wrapBranded puts the logo or name on top and escapes everything it inserts", async () => {
+  const { wrapBranded } = await import("./render.ts");
+  const withLogo = wrapBranded("<p>Hi</p>", { businessName: "David & Co", logoUrl: "https://x.test/brand/logo", footer: "Savannah <GA>" });
+  assert.ok(withLogo.includes('<img src="https://x.test/brand/logo" alt="David &amp; Co"'));
+  assert.ok(withLogo.includes("Savannah &lt;GA&gt;"));
+  assert.ok(withLogo.indexOf("<img") < withLogo.indexOf("<p>Hi</p>"));
+  const plain = wrapBranded("<p>Hi</p>", { businessName: "David Monroe Photography", logoUrl: null, footer: null });
+  assert.ok(plain.includes(">David Monroe Photography</div>"));
+  assert.ok(!plain.includes("border-top"));
+});

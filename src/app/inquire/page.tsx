@@ -1,6 +1,7 @@
 // Public inquiry form (Phase 1.5). Plain HTML form posting to /api/inquire so
 // it works with no client JS; success/error state comes back via query params
 // after the API route's redirect.
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 export const dynamic = "force-dynamic";
 
 export default async function InquirePage({
@@ -12,6 +13,7 @@ export default async function InquirePage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>Get in touch</h1>
       {success && <p>Thank you. Your note is on its way to me, and I&apos;ll be in touch soon.</p>}
       {error && <p>{error}</p>}
@@ -48,6 +50,7 @@ export default async function InquirePage({
         </div>
         <button type="submit">Send inquiry</button>
       </form>
+      <BrandFooter />
     </main>
   );
 }

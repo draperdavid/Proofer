@@ -7,6 +7,7 @@ import { formatCents } from "@/app/admin/invoices/money";
 import type { SessionType } from "@/app/admin/session-types/types";
 import { bookableSlots } from "@/lib/booking/load";
 import { localDate } from "@/lib/booking/book";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export default async function BookSessionPage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>{type.name}</h1>
       <p>
         {type.duration_minutes} min · {formatCents(type.price_cents, type.currency)}
@@ -114,6 +116,7 @@ export default async function BookSessionPage({
           <button type="submit">Continue to payment</button>
         </form>
       )}
+      <BrandFooter />
     </main>
   );
 }

@@ -83,3 +83,20 @@ const EMAIL_PATTERN = /^[^@\s<>",;]+@[^@\s<>",;]+\.[^@\s<>",;]+$/;
 export function isSendableEmail(value: string): boolean {
   return value.length <= 254 && EMAIL_PATTERN.test(value);
 }
+
+// Brand frame around an email's HTML part (Phase 9.2): the logo (or the
+// business name) on top, an optional footer line underneath. The logo URL is
+// the stable public /brand/logo route, never a short-lived signed link.
+export function wrapBranded(
+  innerHtml: string,
+  brand: { businessName: string; logoUrl: string | null; footer: string | null }
+): string {
+  const name = escapeHtml(brand.businessName);
+  const head = brand.logoUrl
+    ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${name}" style="max-height: 56px; max-width: 220px; display: block; border: 0;">`
+    : `<div style="font-family: Georgia, serif; font-size: 18px; color: #222;">${name}</div>`;
+  const foot = brand.footer
+    ? `<div style="font-family: Georgia, serif; font-size: 13px; line-height: 1.5; color: #666; margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e5e5;">${escapeHtml(brand.footer)}</div>`
+    : "";
+  return `<div style="max-width: 560px;"><div style="margin-bottom: 24px;">${head}</div>${innerHtml}${foot}</div>`;
+}

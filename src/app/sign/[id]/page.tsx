@@ -8,6 +8,7 @@ import { isUuid } from "@/lib/galleries/download";
 import { CONTRACT_COPY_SELECT, currentTitle, storedSignature, type ContractForCopy } from "@/lib/contracts/signed-copy";
 import { formatSignedAt, sha256Hex } from "@/lib/contracts/signing";
 import { signContract } from "./actions";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,10 @@ export default async function SignContractPage({
   if (contract.status === "canceled") {
     return (
       <main>
+        <BrandHeader />
         <h1>{title}</h1>
         <p>This contract was canceled and can no longer be signed. If that&apos;s a surprise, reply to the email it came in.</p>
+        <BrandFooter />
       </main>
     );
   }
@@ -53,6 +56,7 @@ export default async function SignContractPage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>{title}</h1>
       {justSigned && signature && <p className="notice">Signed. A copy is on its way to your inbox.</p>}
       {errorText && <p className="err">{errorText}</p>}
@@ -92,6 +96,7 @@ export default async function SignContractPage({
           </p>
         </form>
       )}
+      <BrandFooter />
     </main>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase";
 import { formatCents } from "@/app/admin/invoices/money";
 import type { SessionType } from "@/app/admin/session-types/types";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function BookPage() {
 
   return (
     <main>
+      <BrandHeader />
       <h1>Book a session</h1>
       {types.length === 0 ? (
         <p>There&apos;s nothing open for booking right now. <Link href="/inquire">Get in touch</Link> instead.</p>
@@ -39,6 +41,7 @@ export default async function BookPage() {
           ))}
         </ul>
       )}
+      <BrandFooter />
     </main>
   );
 }

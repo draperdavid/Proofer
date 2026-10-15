@@ -8,6 +8,7 @@ import { formatCents } from "@/app/admin/invoices/money";
 import { packageTotals } from "@/app/admin/quotes/totals";
 import type { Quote, QuotePackage } from "@/app/admin/quotes/types";
 import { acceptPackage } from "./actions";
+import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,7 @@ export default async function ViewQuotePage({
 
   return (
     <main>
+      <BrandHeader />
       <h1>{quote.title}</h1>
       {errorParam === "limited" && <p className="err">Too many attempts. Please wait a few minutes and try again.</p>}
       {quote.projects && <p>{quote.projects.title}</p>}
@@ -95,6 +97,7 @@ export default async function ViewQuotePage({
           </section>
         );
       })}
+      <BrandFooter />
     </main>
   );
 }

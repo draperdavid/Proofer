@@ -14,6 +14,8 @@ import { Shop } from "./shop";
 import { pricedCart } from "@/lib/store/cart";
 import { loadCatalog, readCart } from "@/lib/store/gallery-store";
 import { GalleryGrid, type GridPhoto } from "./gallery-grid";
+import { BrandAccent, BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
+import { brandImageUrl, getBrand } from "@/lib/brand/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +53,10 @@ export default async function GalleryPage({
   if (access === "private") {
     return (
       <main>
+        <BrandHeader />
         <h1>{collection.name}</h1>
         <p>This gallery is private. Please contact your photographer for access.</p>
+        <BrandFooter />
       </main>
     );
   }
@@ -61,6 +65,7 @@ export default async function GalleryPage({
     const unlock = unlockGallery.bind(null, collection.slug);
     return (
       <main>
+        <BrandHeader />
         <h1>{collection.name}</h1>
         <p>This gallery is password protected.</p>
         {error && ERRORS[error] && <p role="alert">{ERRORS[error]}</p>}
@@ -69,6 +74,7 @@ export default async function GalleryPage({
           <input id="password" name="password" type="password" autoComplete="current-password" required />
           <button type="submit">View gallery</button>
         </form>
+        <BrandFooter />
       </main>
     );
   }
@@ -102,7 +108,12 @@ export default async function GalleryPage({
     .maybeSingle();
   if (coverErr) throw coverErr;
   const coverAsset = assets.find((a) => a.id === coverRow?.cover_asset_id) ?? assets[0];
-  const heroUrl = coverAsset && r2Configured() ? await presignGet(displayKey(coverAsset, LIGHTBOX_SIZE)) : null;
+  // Brand (9.2): the default cover stands in until the gallery has photos,
+  // and the light logo sits on the cover.
+  const brand = await getBrand();
+  const heroUrl =
+    coverAsset && r2Configured() ? await presignGet(displayKey(coverAsset, LIGHTBOX_SIZE)) : await brandImageUrl(brand, "default_cover");
+  const coverLogo = await brandImageUrl(brand, "cover_logo");
   const favoriteIds = new Set((favsRes.data ?? []).map((f) => f.asset_id));
 
   // Downloads (5.5). The download route enforces all of this again; here it
@@ -196,6 +207,7 @@ export default async function GalleryPage({
       <header className="hero">
         <img src={heroUrl} alt="" />
         <div className="inner">
+          {coverLogo && <img src={coverLogo} alt={brand.businessName} className="hero-logo" />}
           <h1>{collection.name}</h1>
           {collection.event_date && <p className="date">{collection.event_date}</p>}
           <a href="#photos" className="go">View gallery</a>
@@ -203,6 +215,7 @@ export default async function GalleryPage({
       </header>
     )}
     <main className="wide" id="photos">
+      <BrandAccent />
       {!heroUrl && <h1 className="gtitle">{collection.name}</h1>}
       {!heroUrl && collection.event_date && <p className="gdate">{collection.event_date}</p>}
 
@@ -274,6 +287,7 @@ export default async function GalleryPage({
           emptyText={showFavorites ? "No favorites yet. Tap the heart on a photo to add it." : undefined}
         />
       )}
+      <BrandFooter />
     </main>
     </>
   );
