@@ -2,6 +2,9 @@ import { ThemePicker } from "./theme-picker";
 import { BrandImageUpload } from "./brand-upload";
 import { removeBrandImage, updateBrand } from "./brand-actions";
 import { brandImageUrl, getBrand, type BrandImageKind } from "@/lib/brand/brand";
+import { getLink, googleConfigured } from "@/lib/gcal/client";
+import { disconnectCalendar } from "./calendar-actions";
+import { formatDateTime } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +14,21 @@ const IMAGES: { kind: BrandImageKind; name: string; hint: string; accept: string
   { kind: "default_cover", name: "Default cover", hint: "Used on a gallery before you pick its own cover.", accept: "image/jpeg,image/png,image/webp" },
 ];
 
-export default async function SettingsPage() {
+const CALENDAR_RESULTS: Record<string, { text: string; ok?: boolean }> = {
+  connected: { text: "Google Calendar connected.", ok: true },
+  declined: { text: "Google didn't connect (access wasn't allowed)." },
+  bad_state: { text: "That sign-in link expired. Please try connecting again." },
+  missing_scope: { text: "Proofer needs both calendar boxes ticked on Google's screen. Please try again." },
+  no_refresh: { text: "Google didn't give lasting access. Remove Proofer under your Google account's third-party access, then connect again." },
+  failed: { text: "Couldn't connect to Google. Please try again." },
+  not_configured: { text: "Google sign-in isn't set up on this environment yet (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)." },
+};
+
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ calendar?: string }> }) {
+  const { calendar: calendarResult } = await searchParams;
   const brand = await getBrand();
+  const calendar = await getLink().catch(() => null);
+  const calendarNote = calendarResult ? CALENDAR_RESULTS[calendarResult] : undefined;
   const urls = Object.fromEntries(await Promise.all(IMAGES.map(async (i) => [i.kind, await brandImageUrl(brand, i.kind)] as const)));
 
   return (
@@ -67,6 +83,46 @@ export default async function SettingsPage() {
           Save brand
         </button>
       </form>
+
+      <h2 id="calendar">Google Calendar</h2>
+      <p className="muted">
+        Confirmed bookings go onto your calendar, and anything already on it blocks those times on the booking page.
+      </p>
+      {calendarNote && (
+        <p role="status" className={calendarNote.ok ? "notice" : "notice err"}>
+          {calendarNote.text}
+        </p>
+      )}
+      {calendar?.refresh_token ? (
+        <div className="ws-rows">
+          <p>
+            <span className="st green">Connected</span> {calendar.account_email ?? "Google account"}
+            {calendar.connected_at && <span className="muted small"> · since {formatDateTime(calendar.connected_at)}</span>}
+          </p>
+          {calendar.last_error && (
+            <p className="small">
+              <span className="st red">Problem</span> {calendar.last_error}
+              {calendar.last_error_at && <span className="muted"> ({formatDateTime(calendar.last_error_at)})</span>}
+            </p>
+          )}
+          <form action={disconnectCalendar}>
+            <button type="submit" className="ghost sm">
+              Disconnect
+            </button>
+          </form>
+        </div>
+      ) : (
+        <>
+          {calendar?.last_error && <p className="small"><span className="st red">Disconnected</span> {calendar.last_error}</p>}
+          {googleConfigured() ? (
+            <a href="/admin/calendar/connect" className="btn">
+              Connect Google Calendar
+            </a>
+          ) : (
+            <p className="hint">Waiting on Google sign-in keys for this environment (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET).</p>
+          )}
+        </>
+      )}
 
       <h2>Appearance</h2>
       <p className="muted">How Proofer looks to you. Changes apply right away.</p>

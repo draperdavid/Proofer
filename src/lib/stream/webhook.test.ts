@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { formatDuration, parseStreamVideo, signStreamWebhook, verifyStreamWebhook } from "./webhook.ts";
 
-const SECRET = "85011ed3a913c6ad5f9cf6c5573cc0a7";
+const SECRET = "not-a-real-secret";
 const TIME = "1230811200";
 const BODY = '{"uid":"dd5d531a12de0c724bd1275a3b2bc9c6","readyToStream":true}\n';
 const UID = "dd5d531a12de0c724bd1275a3b2bc9c6";

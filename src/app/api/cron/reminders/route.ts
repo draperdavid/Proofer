@@ -4,6 +4,7 @@
 import { CRON_HEADER, verifyCronToken } from "@/lib/reminders/cron-auth";
 import { runReminders } from "@/lib/reminders/run";
 import { syncPendingVideos } from "@/lib/stream/sync";
+import { syncPendingBookings } from "@/lib/gcal/client";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,12 @@ export async function POST(request: Request) {
       console.error("video status check failed", err);
       return { checked: 0 };
     });
-    return Response.json({ ok: true, ...summary, videosChecked: videos.checked });
+    // And bookings the calendar missed (4.5), same rule.
+    const calendar = await syncPendingBookings(10).catch((err) => {
+      console.error("calendar catch-up failed", err);
+      return { synced: 0 };
+    });
+    return Response.json({ ok: true, ...summary, videosChecked: videos.checked, calendarSynced: calendar.synced });
   } catch (err) {
     console.error("reminder run failed", err);
     return Response.json({ ok: false, error: "Reminder run failed" }, { status: 500 });

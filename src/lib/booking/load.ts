@@ -7,6 +7,7 @@ import type { SessionType } from "@/app/admin/session-types/types";
 import { isMissingTable } from "@/lib/db-errors";
 import { busyFromBookings, type LiveBookingRow } from "./book";
 import { generateSlots, type Slot, type SlotWindow } from "./slots";
+import { calendarBusy } from "@/lib/gcal/client";
 
 type Db = ReturnType<typeof supabaseAdmin>;
 
@@ -53,8 +54,12 @@ export async function bookableSlots(
   // Pad by a day so bookings whose buffers reach into the range still count,
   // and so the per-day limit sees the whole first and last day.
   const DAY = 24 * 60 * 60 * 1000;
-  const busy = busyFromBookings(
-    await loadLiveBookings(db, new Date(range.start.getTime() - DAY), new Date(range.end.getTime() + DAY))
-  );
+  const from = new Date(range.start.getTime() - DAY);
+  const until = new Date(range.end.getTime() + DAY);
+  // David's own Google Calendar counts as busy too (4.5). The booking route
+  // calls this again at the moment of booking, so the calendar is re-checked
+  // right before a time is held.
+  const [live, calendar] = await Promise.all([loadLiveBookings(db, from, until), calendarBusy(from, until)]);
+  const busy = [...busyFromBookings(live), ...calendar];
   return { slots: generateSlots(type, w, busy, range, now), timeZone: displayZone(type, w) };
 }

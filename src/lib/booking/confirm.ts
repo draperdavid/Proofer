@@ -12,6 +12,7 @@ import type { Contact } from "@/app/admin/contacts/types";
 import type { Project } from "@/app/admin/projects/types";
 import { onContractSent, onQuestionnaireSent, onStageEntered, onBookingConfirmed } from "@/lib/email/triggers";
 import { isMissingTable } from "@/lib/db-errors";
+import { syncBookingQuietly } from "@/lib/gcal/client";
 
 export async function onBookingPaid(invoiceId: string): Promise<void> {
   try {
@@ -27,6 +28,10 @@ export async function onBookingPaid(invoiceId: string): Promise<void> {
     if (isMissingTable(claimError)) return;
     if (claimError) throw claimError;
     if (!claimed || !claimed.project_id || !claimed.contact_id) return;
+
+    // Onto David's Google Calendar (4.5). Never throws; the hourly job
+    // retries if Google is unreachable or not connected yet.
+    await syncBookingQuietly(claimed.id);
 
     const [{ data: type }, { data: project }, { data: contact }, { data: booked }] = await Promise.all([
       db.from("session_types").select("contract_template_id, questionnaire_template_id").eq("id", claimed.session_type_id).single(),
