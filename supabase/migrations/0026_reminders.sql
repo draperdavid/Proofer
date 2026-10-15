@@ -2,7 +2,7 @@
 --
 -- reminder_settings: David's on/off switch per kind of reminder. Everything
 -- starts OFF, the same opt-in as stage emails: nothing mails a client on a
--- schedule until he turns it on in /admin/emails/reminders.
+-- schedule until David turns it on in /admin/emails/reminders.
 --
 -- automation_jobs: the queue. The hourly cron adds a job for each reminder an
 -- open document should get, sends the ones that are due, retries failures
