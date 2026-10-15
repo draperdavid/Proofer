@@ -11,10 +11,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isActionRateLimited } from "@/lib/rate-limit";
 import { insertDraftInvoice } from "@/app/admin/invoices/draft";
 import type { Quote, QuotePackage } from "@/app/admin/quotes/types";
 
 export async function acceptPackage(quoteId: string, packageId: string) {
+  if (await isActionRateLimited(`quote:${quoteId}`)) redirect(`/quote/${quoteId}?error=limited`);
   const db = supabaseAdmin();
 
   const { data: quoteRow, error: quoteError } = await db.from("quotes").select("*").eq("id", quoteId).single();

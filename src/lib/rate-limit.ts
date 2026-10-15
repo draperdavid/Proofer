@@ -28,3 +28,12 @@ export function isRateLimited(key: string): boolean {
 
   return entry.count > MAX_PER_WINDOW;
 }
+
+// For public server actions: limits by scope (e.g. "pay:<invoice id>") plus the
+// caller's IP, read from the request headers.
+export async function isActionRateLimited(scope: string): Promise<boolean> {
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  const ip = h.get("cf-connecting-ip") || h.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return isRateLimited(`${scope}:${ip}`);
+}

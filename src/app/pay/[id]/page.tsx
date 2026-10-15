@@ -18,6 +18,7 @@ type InvoiceWithProject = Invoice & { projects: { title: string } | null };
 const PAY_ERRORS: Record<string, string> = {
   hold_expired: "Sorry, the time you picked is no longer held for you. Please book again and pick a time.",
   booking_canceled: "This booking was canceled.",
+  limited: "Too many attempts. Please wait a few minutes and try again.",
 };
 
 export default async function PayInvoicePage({

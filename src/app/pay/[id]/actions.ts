@@ -11,6 +11,7 @@
 // depends on. Nothing here can mark the invoice paid; only the signature-
 // verified webhook built in task 2.3 is allowed to do that.
 import { redirect } from "next/navigation";
+import { isActionRateLimited } from "@/lib/rate-limit";
 import { supabaseAdmin } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
@@ -19,6 +20,7 @@ import { isMissingTable } from "@/lib/db-errors";
 import { CHECKOUT_EXPIRY_MINUTES, HOLD_PAST_CHECKOUT_MINUTES } from "@/lib/booking/hold";
 
 export async function createCheckoutSession(invoiceId: string) {
+  if (await isActionRateLimited(`pay:${invoiceId}`)) redirect(`/pay/${invoiceId}?error=limited`);
   const db = supabaseAdmin();
   const { data, error } = await db
     .from("invoices")

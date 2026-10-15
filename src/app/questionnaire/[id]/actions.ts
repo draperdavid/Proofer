@@ -6,6 +6,7 @@
 // /pay's checkout-session creation and /inquire's intake validation.
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
+import { isActionRateLimited } from "@/lib/rate-limit";
 import type { QuestionnaireAnswers, QuestionnaireField } from "@/app/admin/questionnaires/types";
 
 function buildAnswers(fields: QuestionnaireField[], formData: FormData): QuestionnaireAnswers {
@@ -38,6 +39,7 @@ function buildAnswers(fields: QuestionnaireField[], formData: FormData): Questio
 }
 
 export async function submitAnswers(questionnaireId: string, formData: FormData) {
+  if (await isActionRateLimited(`questionnaire:${questionnaireId}`)) redirect(`/questionnaire/${questionnaireId}?error=limited`);
   const db = supabaseAdmin();
   const { data: questionnaire, error } = await db
     .from("questionnaires")

@@ -16,10 +16,10 @@ export default async function FillQuestionnairePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
   const { id } = await params;
-  const { success } = await searchParams;
+  const { success, error: errorParam } = await searchParams;
 
   const db = supabaseAdmin();
   const { data, error } = await db
@@ -37,6 +37,7 @@ export default async function FillQuestionnairePage({
   return (
     <main>
       <h1>{questionnaire.projects?.title ?? "Questionnaire"}</h1>
+      {errorParam === "limited" && <p className="err">Too many attempts. Please wait a few minutes and try again.</p>}
 
       {alreadySubmitted && <p>Thanks — your answers have been received.</p>}
 

@@ -15,10 +15,13 @@ type QuoteWithProject = Quote & { projects: { title: string } | null };
 
 export default async function ViewQuotePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { id } = await params;
+  const { error: errorParam } = await searchParams;
 
   const db = supabaseAdmin();
   const [{ data, error }, { data: pkgs, error: pkgsError }] = await Promise.all([
@@ -39,6 +42,7 @@ export default async function ViewQuotePage({
   return (
     <main>
       <h1>{quote.title}</h1>
+      {errorParam === "limited" && <p className="err">Too many attempts. Please wait a few minutes and try again.</p>}
       {quote.projects && <p>{quote.projects.title}</p>}
       {quote.notes && <p>{quote.notes}</p>}
 
