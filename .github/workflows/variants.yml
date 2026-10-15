@@ -1,7 +1,9 @@
 name: Photo Variants
 
-# Resizes uploaded gallery photos into 3600/2048/1024/640 JPEGs (Phase 5.2).
-# Runs here rather than in the Worker so resizing never burns Worker CPU.
+# Resizes uploaded gallery photos into 3600/2048/1024/640 JPEGs (Phase 5.2),
+# then makes a web copy + poster frame of any new gallery videos (Phase 6).
+# Runs here rather than in the Worker so this never burns Worker CPU, and it's
+# free (no Cloudflare Stream).
 # Like backup.yml, the schedule and the manual button only work once this file
 # is on the default branch (main).
 on:
@@ -21,7 +23,8 @@ jobs:
   variants:
     runs-on: ubuntu-latest
     environment: staging
-    timeout-minutes: 30
+    # Long enough for a few long films; the job takes at most 3 videos a run.
+    timeout-minutes: 120
     steps:
       # Staging-only until Phase 9: always run develop's code against the
       # staging environment's secrets, even though the schedule fires from main.
@@ -38,6 +41,30 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Media-bucket credentials, separate from the backups token
           # (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY repo secrets).
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_MEDIA_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MEDIA_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_MEDIA_BUCKET }}
+      # Videos: only install ffmpeg when there's something to encode, so the
+      # hourly run stays quick when nothing new has been uploaded. They run
+      # even if a photo failed above.
+      - id: videos
+        if: ${{ !cancelled() }}
+        run: npm run video-web -- --check
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_MEDIA_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MEDIA_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_MEDIA_BUCKET }}
+      - if: ${{ !cancelled() && steps.videos.outputs.pending == 'true' }}
+        run: command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -y -q ffmpeg)
+      - if: ${{ !cancelled() && steps.videos.outputs.pending == 'true' }}
+        run: npm run video-web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_MEDIA_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MEDIA_SECRET_ACCESS_KEY }}

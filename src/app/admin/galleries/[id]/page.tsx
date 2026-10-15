@@ -12,7 +12,7 @@ import {
   moveAsset,
   moveSet,
   renameSet,
-  retryTranscode,
+  retryProcessing,
   setSetDownloadable,
   setCollectionStatus,
   setCover,
@@ -31,9 +31,7 @@ import type { Collection, MediaAsset, PhotoSet } from "../types";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { isMissingTable } from "@/lib/db-errors";
-import { playbackFor } from "@/lib/stream/client";
-import { syncPendingVideos } from "@/lib/stream/sync";
-import { formatDuration } from "@/lib/stream/webhook";
+import { VIDEO_URL_TTL_SECONDS, formatDuration, playableKeys } from "@/lib/galleries/video";
 
 export const dynamic = "force-dynamic";
 
@@ -50,14 +48,6 @@ export default async function CollectionDetailPage({
 }) {
   const { id } = await params;
   const { tab: tabParam, set: setParam, section: sectionParam } = await searchParams;
-
-  // Videos Stream hasn't reported on (a missed webhook, or none registered on
-  // this environment): ask Stream directly, a few per page view (6.3).
-  try {
-    await syncPendingVideos({ collectionId: id, limit: 5, minAgeSeconds: 60 });
-  } catch (err) {
-    console.error("video status check skipped", err); // e.g. before migration 0029
-  }
 
   const db = supabaseAdmin();
   const [collectionRes, setsRes, assetsRes, contactsRes, projectsRes, favsRes] = await Promise.all([
@@ -131,15 +121,17 @@ export default async function CollectionDetailPage({
         .map(async (a) => thumbs.set(a.id, await presignGet(displayKey(a, GRID_SIZE))))
     );
   }
-  // Video thumbnails come from Stream, signed locally (no request per video).
-  await Promise.all(
-    assets
-      .filter((a) => a.kind === "video" && a.stream_status === "ready" && a.stream_uid)
-      .map(async (a) => {
-        const p = await playbackFor(a.stream_uid as string);
-        if (p) thumbs.set(a.id, p.posterUrl);
-      })
-  );
+  // Video thumbnails are the poster frame the variants job made.
+  if (storageReady) {
+    await Promise.all(
+      assets
+        .filter((a) => a.kind === "video")
+        .map(async (a) => {
+          const keys = playableKeys(a);
+          if (keys) thumbs.set(a.id, await presignGet(keys.poster, VIDEO_URL_TTL_SECONDS));
+        })
+    );
+  }
 
   const updateThis = updateCollection.bind(null, collection.id);
   const updateAccess = updateCollectionAccess.bind(null, collection.id);
@@ -414,25 +406,23 @@ export default async function CollectionDetailPage({
                       <div className="name">
                         {asset.original_filename} · {formatBytes(asset.size_bytes)}
                       </div>
-                      {asset.status === "uploaded" && asset.kind === "video" && asset.stream_status !== "ready" && (
+                      {asset.status === "uploaded" && !asset.variants_ready && (
                         <div className="hint">
-                          {asset.stream_status === "error" ? (
+                          {asset.variant_attempts >= MAX_VARIANT_ATTEMPTS ? (
                             <>
-                              <span className="st red">Failed</span> {asset.stream_error}{" "}
-                              <form action={retryTranscode.bind(null, asset.id)} className="inline">
+                              <span className="st red" title={asset.variant_error ?? undefined}>
+                                Failed
+                              </span>{" "}
+                              {asset.kind === "video" ? "Couldn't make the web copy." : "Couldn't make the sizes."}{" "}
+                              <form action={retryProcessing.bind(null, asset.id)} className="inline">
                                 <button type="submit" className="ghost sm">
-                                  Retry transcode
+                                  Retry
                                 </button>
                               </form>
                             </>
                           ) : (
-                            <span className="st amber">Processing</span>
+                            <span className="st amber">{asset.kind === "video" ? "Preparing video (up to an hour)" : "Sizes processing"}</span>
                           )}
-                        </div>
-                      )}
-                      {asset.status === "uploaded" && asset.kind !== "video" && !asset.variants_ready && (
-                        <div className="hint" title={asset.variant_error ?? undefined}>
-                          {asset.variant_attempts >= MAX_VARIANT_ATTEMPTS ? "Sizes failed — see error on hover" : "Sizes processing…"}
                         </div>
                       )}
                     </li>

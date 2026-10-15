@@ -15,8 +15,7 @@ import { pricedCart } from "@/lib/store/cart";
 import { loadCatalog, readCart } from "@/lib/store/gallery-store";
 import { GalleryGrid, type GridPhoto } from "./gallery-grid";
 import { BrandAccent, BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
-import { playbackFor } from "@/lib/stream/client";
-import { formatDuration } from "@/lib/stream/webhook";
+import { VIDEO_URL_TTL_SECONDS, formatDuration, playableKeys } from "@/lib/galleries/video";
 import { brandImageUrl, getBrand } from "@/lib/brand/brand";
 
 export const dynamic = "force-dynamic";
@@ -162,20 +161,22 @@ export default async function GalleryPage({
 
   // Presigned GETs are local signing, no request to R2 per photo. The grid
   // uses the 640 variant, the lightbox 2048 (original until variants exist).
-  // Videos get a Stream playback token, signed locally too, and only here:
-  // past the access check above (6.4).
+  // Videos play their web copy straight from R2, signed the same way (with a
+  // longer expiry so a long film keeps playing). Only past the access check.
   let photos: GridPhoto[] = [];
   if (r2Configured()) {
     photos = await Promise.all(
       setAssets.map(async (a, i) => {
         const isVideo = a.kind === "video";
-        const playback = isVideo && a.stream_status === "ready" && a.stream_uid ? await playbackFor(a.stream_uid) : null;
+        const keys = isVideo ? playableKeys(a) : null;
         return {
         id: a.id,
         label: `${isVideo ? "Video" : "Photo"} ${i + 1}`,
-        gridUrl: isVideo ? (playback?.posterUrl ?? "") : await presignGet(displayKey(a, GRID_SIZE)),
+        gridUrl: isVideo ? (keys ? await presignGet(keys.poster, VIDEO_URL_TTL_SECONDS) : "") : await presignGet(displayKey(a, GRID_SIZE)),
         largeUrl: isVideo ? "" : await presignGet(displayKey(a, LIGHTBOX_SIZE)),
-        video: isVideo ? { playerUrl: playback?.playerUrl ?? null, duration: formatDuration(a.duration_seconds) } : undefined,
+        video: isVideo
+          ? { src: keys ? await presignGet(keys.web, VIDEO_URL_TTL_SECONDS) : null, duration: formatDuration(a.duration_seconds) }
+          : undefined,
         downloadHref:
           downloadsOn && downloadableSets.has(a.set_id) && !needsEmailToDownload
             ? `/g/${collection.slug}/download/${a.id}`

@@ -692,5 +692,5 @@ main.wide .brand-foot { margin-top: 48px; }
 form.inline { display: inline; }
 .vbadge { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: var(--r-pill); background: rgba(10,10,10,0.72); color: #fff; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none; }
 .gvideo-ph { aspect-ratio: 16 / 9; display: grid; place-items: center; padding: var(--sp-3); color: var(--t2); font-size: 14px; text-align: center; }
-.lb-video { width: min(94vw, calc(84vh * 16 / 9)); aspect-ratio: 16 / 9; border: 0; border-radius: 3px; background: #000; }
+.lb-video { max-width: 94vw; max-height: 84vh; border-radius: 3px; background: #000; }
 .lb-wait { color: #ddd; font-size: 15px; }

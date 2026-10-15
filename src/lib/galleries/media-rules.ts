@@ -9,8 +9,8 @@ const PHOTO_TYPES: Record<string, string> = {
   "image/webp": "webp",
 };
 
-// Videos (6.2): what Cloudflare Stream takes in and browsers commonly hand
-// over. The original is stored as-is; Stream makes the playable copy.
+// Videos (Phase 6): what phones and editors commonly export and browsers hand
+// over. The original is stored as-is; the variants job makes the web copy.
 const VIDEO_TYPES: Record<string, string> = {
   "video/mp4": "mp4",
   "video/quicktime": "mov",

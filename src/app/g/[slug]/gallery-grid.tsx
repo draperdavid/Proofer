@@ -15,9 +15,9 @@ export type GridPhoto = {
   // downloadable, or the visitor must give their email first.
   downloadHref: string | null;
   favorited: boolean;
-  // Videos (6.4): Stream's player and thumbnail, both carrying a signed
-  // token. playerUrl is null while Stream is still processing it.
-  video?: { playerUrl: string | null; duration: string | null };
+  // Videos (Phase 6): the web copy's presigned URL, null while the hourly
+  // job is still making it. gridUrl is the poster frame.
+  video?: { src: string | null; duration: string | null };
 };
 
 type ToggleFavorite = (assetId: string) => Promise<{ ok: true; favorited: boolean } | { ok: false; error: string }>;
@@ -133,7 +133,7 @@ export function GalleryGrid({
               {photo.gridUrl ? (
                 <img src={photo.gridUrl} alt={photo.label} loading="lazy" />
               ) : (
-                <span className="gvideo-ph">{photo.video?.playerUrl ? photo.label : "Video still processing"}</span>
+                <span className="gvideo-ph">{photo.video?.src ? photo.label : "Video still processing"}</span>
               )}
             </button>
             {photo.video && <span className="vbadge">▶{photo.video.duration ? ` ${photo.video.duration}` : ""}</span>}
@@ -173,14 +173,16 @@ export function GalleryGrid({
             </button>
           </div>
           {current.video ? (
-            current.video.playerUrl ? (
-              <iframe
+            current.video.src ? (
+              <video
                 key={current.id}
-                src={current.video.playerUrl}
-                title={current.label}
+                src={current.video.src}
+                poster={current.gridUrl || undefined}
                 className="lb-video"
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
+                controls
+                playsInline
+                preload="metadata"
+                aria-label={current.label}
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (

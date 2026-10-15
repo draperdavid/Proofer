@@ -16,10 +16,8 @@ const csp = [
   // before first paint, so inline scripts stay allowed for now.
   "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
-  // Gallery photos and product images are presigned R2 URLs; video
-  // thumbnails and the player come from Cloudflare Stream (6.4).
-  "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.cloudflarestream.com",
-  "frame-src https://*.cloudflarestream.com",
+  // Gallery photos, videos and product images are presigned R2 URLs.
+  "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com",
   "media-src 'self' blob: https://*.r2.cloudflarestorage.com",
   // Browser uploads go straight to R2; errors go to Sentry.
   "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",

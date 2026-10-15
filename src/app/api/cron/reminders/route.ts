@@ -3,7 +3,6 @@
 // service-role key; anything else gets 401.
 import { CRON_HEADER, verifyCronToken } from "@/lib/reminders/cron-auth";
 import { runReminders } from "@/lib/reminders/run";
-import { syncPendingVideos } from "@/lib/stream/sync";
 import { syncPendingBookings } from "@/lib/gcal/client";
 
 export const dynamic = "force-dynamic";
@@ -20,18 +19,13 @@ export async function POST(request: Request) {
 
   try {
     const summary = await runReminders({ baseUrl });
-    // Rides along on the same hourly run: videos Stream hasn't reported on
-    // (6.3). A failure here never fails the reminder run.
-    const videos = await syncPendingVideos({ limit: 10, minAgeSeconds: 10 * 60 }).catch((err) => {
-      console.error("video status check failed", err);
-      return { checked: 0 };
-    });
-    // And bookings the calendar missed (4.5), same rule.
+    // Rides along on the same hourly run: bookings the Google Calendar
+    // missed (4.5). A failure here never fails the reminder run.
     const calendar = await syncPendingBookings(10).catch((err) => {
       console.error("calendar catch-up failed", err);
       return { synced: 0 };
     });
-    return Response.json({ ok: true, ...summary, videosChecked: videos.checked, calendarSynced: calendar.synced });
+    return Response.json({ ok: true, ...summary, calendarSynced: calendar.synced });
   } catch (err) {
     console.error("reminder run failed", err);
     return Response.json({ ok: false, error: "Reminder run failed" }, { status: 500 });

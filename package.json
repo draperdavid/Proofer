@@ -10,6 +10,7 @@
     "test": "node --test \"src/**/*.test.ts\"",
     "build:worker": "opennextjs-cloudflare build",
     "variants": "node scripts/generate-variants.ts",
+    "video-web": "node scripts/generate-video-web.ts",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },

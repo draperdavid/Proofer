@@ -46,9 +46,6 @@ export type MediaAsset = {
   variants_ready: boolean;
   variant_attempts: number;
   variant_error: string | null;
-  // Video (6.2, migration 0029); absent until it's run, null for photos.
-  stream_uid?: string | null;
-  stream_status?: "queued" | "processing" | "ready" | "error" | null;
-  stream_error?: string | null;
+  // Video (Phase 6, migration 0029); absent until it's run, null for photos.
   duration_seconds?: number | null;
 };
