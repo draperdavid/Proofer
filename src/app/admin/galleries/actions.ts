@@ -8,14 +8,16 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/auth/require-admin";
-import { deletePrefix, headObjectSize, presignPut, r2Configured } from "@/lib/r2";
+import { deletePrefix, headObjectSize, presignGet, presignPut, r2Configured } from "@/lib/r2";
 import {
   assetPrefix,
   collectionPrefix,
+  mediaKind,
   originalKey,
   validateUpload,
   type UploadRequest,
 } from "@/lib/galleries/media-rules";
+import { copyToStream, deleteStreamVideo, streamConfigured } from "@/lib/stream/client";
 import {
   VISIBILITIES,
   hashPassword,
@@ -57,6 +59,27 @@ function rethrow(error: { code?: string }, slug: string): never {
 function revalidateCollection(id: string) {
   revalidatePath("/admin/galleries");
   revalidatePath(`/admin/galleries/${id}`);
+}
+
+// Stream copies go before rows (6.2), the same rule as R2: if removing them
+// fails, the rows survive and the delete can be retried.
+async function deleteStreamVideos(uids: (string | null)[]) {
+  const live = uids.filter((u): u is string => !!u);
+  if (live.length === 0) return;
+  if (!streamConfigured()) throw new Error("Cloudflare Stream isn't configured, so these videos can't be removed from it yet");
+  for (const uid of live) await deleteStreamVideo(uid);
+}
+
+async function streamUids(column: "collection_id" | "set_id" | "id", value: string) {
+  const { data, error } = await supabaseAdmin()
+    .from("media_assets")
+    .select("stream_uid")
+    .eq(column, value)
+    .eq("kind", "video")
+    .not("stream_uid", "is", null);
+  // Before migration 0029 there are no video columns, and no videos.
+  if (error) return [];
+  return (data ?? []).map((r) => r.stream_uid as string | null);
 }
 
 // ---------------------------------------------------------------- collections
@@ -197,6 +220,7 @@ export async function deleteCollection(id: string) {
     .eq("collection_id", id);
   if (countErr) throw countErr;
 
+  await deleteStreamVideos(await streamUids("collection_id", id));
   if (r2Configured()) {
     await deletePrefix(collectionPrefix(id));
   } else if ((count ?? 0) > 0) {
@@ -313,6 +337,7 @@ export async function deleteSet(setId: string) {
     if (!r2Configured()) {
       throw new Error("R2 isn't configured, so this set's photos can't be removed from storage yet");
     }
+    await deleteStreamVideos(await streamUids("set_id", setId));
     const prefixes = assets.map((a) => assetPrefix(set.collection_id, a.id));
     await deletePrefix(collectionPrefix(set.collection_id), (key) => prefixes.some((p) => key.startsWith(p)));
   }
@@ -357,6 +382,7 @@ export async function deleteAsset(assetId: string) {
   if (error) throw error;
 
   if (!r2Configured()) throw new Error("R2 isn't configured, so this photo can't be removed from storage yet");
+  await deleteStreamVideos(await streamUids("id", asset.id));
   await deletePrefix(assetPrefix(asset.collection_id, asset.id));
 
   const { error: deleteErr } = await db.from("media_assets").delete().eq("id", assetId);
@@ -376,6 +402,7 @@ export async function setCover(collectionId: string, assetId: string) {
     .eq("id", assetId)
     .eq("collection_id", collectionId)
     .eq("status", "uploaded")
+    .eq("kind", "photo")
     .maybeSingle();
   if (error) throw error;
   if (!asset) throw new Error("That photo can't be the cover (it isn't an uploaded photo in this gallery)");
@@ -426,6 +453,8 @@ export async function startUpload(collectionId: string, setId: string, file: Upl
       original_filename: String(file.name).slice(0, 255),
       content_type: file.type,
       size_bytes: file.size,
+      // Only sent for videos, so photo uploads still work before 0029 is run.
+      ...(mediaKind(file.type) === "video" ? { kind: "video" } : {}),
     });
     if (error) throw error;
 
@@ -444,7 +473,7 @@ export async function finishUpload(assetId: string): Promise<FinishResult> {
     const db = supabaseAdmin();
     const { data: asset, error } = await db
       .from("media_assets")
-      .select("id, collection_id, r2_key, size_bytes, status")
+      .select("id, collection_id, r2_key, size_bytes, status, kind, original_filename")
       .eq("id", assetId)
       .single();
     if (error) throw error;
@@ -462,10 +491,57 @@ export async function finishUpload(assetId: string): Promise<FinishResult> {
 
     const { error: updateErr } = await db.from("media_assets").update({ status: "uploaded" }).eq("id", asset.id);
     if (updateErr) throw updateErr;
+    // The original is safe on R2 either way; a failed transcode shows a
+    // Retry button instead of failing the upload.
+    if (asset.kind === "video") await queueTranscode(asset);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: message(err) };
   }
+}
+
+// ---------------------------------------------------------------------- video
+// Stream fetches the original from R2 itself through a presigned GET. Six
+// hours gives it room to start even when its queue is busy.
+const STREAM_FETCH_TTL_SECONDS = 6 * 60 * 60;
+
+async function queueTranscode(asset: { id: string; r2_key: string; original_filename: string }) {
+  const db = supabaseAdmin();
+  let patch: Record<string, unknown>;
+  if (!streamConfigured()) {
+    patch = { stream_uid: null, stream_status: "error", stream_error: "Cloudflare Stream isn't set up yet. Retry once it is." };
+  } else {
+    try {
+      const url = await presignGet(asset.r2_key, STREAM_FETCH_TTL_SECONDS);
+      const state = await copyToStream(url, asset.id, asset.original_filename);
+      patch = { stream_uid: state.uid, stream_status: state.status, stream_error: state.error };
+    } catch (err) {
+      console.error("stream copy failed", err);
+      patch = { stream_uid: null, stream_status: "error", stream_error: message(err).slice(0, 300) };
+    }
+  }
+  const { error } = await db
+    .from("media_assets")
+    .update({ ...patch, stream_checked_at: new Date().toISOString() })
+    .eq("id", asset.id);
+  if (error) throw error;
+}
+
+export async function retryTranscode(assetId: string) {
+  await requireAdmin();
+  const db = supabaseAdmin();
+  const { data: asset, error } = await db
+    .from("media_assets")
+    .select("id, collection_id, r2_key, original_filename, stream_uid, status")
+    .eq("id", assetId)
+    .eq("kind", "video")
+    .eq("status", "uploaded")
+    .single();
+  if (error) throw error;
+  // A half-made copy would keep costing storage, so it goes first.
+  if (asset.stream_uid && streamConfigured()) await deleteStreamVideo(asset.stream_uid);
+  await queueTranscode(asset);
+  revalidatePath(`/admin/galleries/${asset.collection_id}`);
 }
 
 // Download limits (5.5). Settings only: the counting and enforcement live in

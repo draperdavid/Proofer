@@ -43,7 +43,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const [{ data: asset, error }, { data: settings, error: settingsErr }] = await Promise.all([
     db
       .from("media_assets")
-      .select("id, collection_id, set_id, r2_key, original_filename, status, variants, variants_ready")
+      // "*" so this keeps working before migration 0029 adds media kinds.
+      .select("*")
       .eq("id", assetId)
       .eq("collection_id", result.collection.id)
       .eq("status", "uploaded")
@@ -61,7 +62,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       headers: NO_STORE,
     });
 
-  const size = String(settings.download_size);
+  // A video always goes out as its original (no size variants), and is
+  // logged that way. It still uses one download credit, like a photo.
+  const size = asset.kind === "video" ? "original" : String(settings.download_size);
   if (!isDownloadSize(size)) return notFound();
   const key = downloadKeyFor(asset, size);
   // Only sign keys under this photo's own prefix, never whatever the row says.

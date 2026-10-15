@@ -34,7 +34,7 @@ export type MediaAsset = {
   id: string;
   collection_id: string;
   set_id: string;
-  kind: "photo";
+  kind: "photo" | "video";
   r2_key: string;
   original_filename: string;
   content_type: string;
@@ -46,4 +46,9 @@ export type MediaAsset = {
   variants_ready: boolean;
   variant_attempts: number;
   variant_error: string | null;
+  // Video (6.2, migration 0029); absent until it's run, null for photos.
+  stream_uid?: string | null;
+  stream_status?: "queued" | "processing" | "ready" | "error" | null;
+  stream_error?: string | null;
+  duration_seconds?: number | null;
 };

@@ -12,6 +12,7 @@ import {
   moveAsset,
   moveSet,
   renameSet,
+  retryTranscode,
   setSetDownloadable,
   setCollectionStatus,
   setCover,
@@ -30,6 +31,9 @@ import type { Collection, MediaAsset, PhotoSet } from "../types";
 import { ConfirmButton } from "@/app/admin/_components/confirm-button";
 import { ClientLink } from "@/app/admin/_components/client-link";
 import { isMissingTable } from "@/lib/db-errors";
+import { playbackFor } from "@/lib/stream/client";
+import { syncPendingVideos } from "@/lib/stream/sync";
+import { formatDuration } from "@/lib/stream/webhook";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +50,14 @@ export default async function CollectionDetailPage({
 }) {
   const { id } = await params;
   const { tab: tabParam, set: setParam, section: sectionParam } = await searchParams;
+
+  // Videos Stream hasn't reported on (a missed webhook, or none registered on
+  // this environment): ask Stream directly, a few per page view (6.3).
+  try {
+    await syncPendingVideos({ collectionId: id, limit: 5, minAgeSeconds: 60 });
+  } catch (err) {
+    console.error("video status check skipped", err); // e.g. before migration 0029
+  }
 
   const db = supabaseAdmin();
   const [collectionRes, setsRes, assetsRes, contactsRes, projectsRes, favsRes] = await Promise.all([
@@ -106,7 +118,7 @@ export default async function CollectionDetailPage({
 
   const storageReady = r2Configured();
   // The cover is the chosen photo, else the first uploaded one (same rule as the Galleries list and client page).
-  const coverId = collection.cover_asset_id ?? assets.find((a) => a.status === "uploaded")?.id ?? null;
+  const coverId = collection.cover_asset_id ?? assets.find((a) => a.status === "uploaded" && a.kind !== "video")?.id ?? null;
 
   // Thumbnails are short-lived presigned GETs of the 640 variant, or of the
   // original until the variants job has made it. Signing is local crypto, no
@@ -115,10 +127,19 @@ export default async function CollectionDetailPage({
   if (storageReady) {
     await Promise.all(
       assets
-        .filter((a) => a.status === "uploaded")
+        .filter((a) => a.status === "uploaded" && a.kind !== "video")
         .map(async (a) => thumbs.set(a.id, await presignGet(displayKey(a, GRID_SIZE))))
     );
   }
+  // Video thumbnails come from Stream, signed locally (no request per video).
+  await Promise.all(
+    assets
+      .filter((a) => a.kind === "video" && a.stream_status === "ready" && a.stream_uid)
+      .map(async (a) => {
+        const p = await playbackFor(a.stream_uid as string);
+        if (p) thumbs.set(a.id, p.posterUrl);
+      })
+  );
 
   const updateThis = updateCollection.bind(null, collection.id);
   const updateAccess = updateCollectionAccess.bind(null, collection.id);
@@ -352,13 +373,20 @@ export default async function CollectionDetailPage({
                         {thumb ? (
                           <img src={thumb} alt={asset.original_filename} loading="lazy" />
                         ) : (
-                          <div className="ph">{asset.status === "pending" ? "Upload didn't finish" : "No preview"}</div>
+                          <div className="ph">
+                            {asset.status === "pending" ? "Upload didn't finish" : asset.kind === "video" ? "Video" : "No preview"}
+                          </div>
                         )}
                         {isCover && <span className="pill tile-badge">Cover</span>}
+                        {asset.kind === "video" && (
+                          <span className="vbadge" aria-label="Video">
+                            ▶{formatDuration(asset.duration_seconds) ? ` ${formatDuration(asset.duration_seconds)}` : ""}
+                          </span>
+                        )}
                         <details className="menu tile-menu">
                           <summary aria-label="Photo options">⋮</summary>
                           <div className="menu-pop">
-                            {!isCover && asset.status === "uploaded" && (
+                            {!isCover && asset.status === "uploaded" && asset.kind !== "video" && (
                               <form action={setCover.bind(null, collection.id, asset.id)}>
                                 <button type="submit">Set as cover</button>
                               </form>
@@ -374,7 +402,11 @@ export default async function CollectionDetailPage({
                               </button>
                             </form>
                             <form action={deleteAsset.bind(null, asset.id)}>
-                              <ConfirmButton message="Delete this photo? This can't be undone.">Delete</ConfirmButton>
+                              <ConfirmButton
+                                message={`Delete this ${asset.kind === "video" ? "video" : "photo"}? This can't be undone.`}
+                              >
+                                Delete
+                              </ConfirmButton>
                             </form>
                           </div>
                         </details>
@@ -382,7 +414,23 @@ export default async function CollectionDetailPage({
                       <div className="name">
                         {asset.original_filename} · {formatBytes(asset.size_bytes)}
                       </div>
-                      {asset.status === "uploaded" && !asset.variants_ready && (
+                      {asset.status === "uploaded" && asset.kind === "video" && asset.stream_status !== "ready" && (
+                        <div className="hint">
+                          {asset.stream_status === "error" ? (
+                            <>
+                              <span className="st red">Failed</span> {asset.stream_error}{" "}
+                              <form action={retryTranscode.bind(null, asset.id)} className="inline">
+                                <button type="submit" className="ghost sm">
+                                  Retry transcode
+                                </button>
+                              </form>
+                            </>
+                          ) : (
+                            <span className="st amber">Processing</span>
+                          )}
+                        </div>
+                      )}
+                      {asset.status === "uploaded" && asset.kind !== "video" && !asset.variants_ready && (
                         <div className="hint" title={asset.variant_error ?? undefined}>
                           {asset.variant_attempts >= MAX_VARIANT_ATTEMPTS ? "Sizes failed — see error on hover" : "Sizes processing…"}
                         </div>
@@ -390,7 +438,7 @@ export default async function CollectionDetailPage({
                     </li>
                   );
                 })}
-                {activeAssets.length === 0 && <li className="muted">No photos in this set yet.</li>}
+                {activeAssets.length === 0 && <li className="muted">Nothing in this set yet.</li>}
               </ul>
             </>
           )}

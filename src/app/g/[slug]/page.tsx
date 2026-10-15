@@ -15,6 +15,8 @@ import { pricedCart } from "@/lib/store/cart";
 import { loadCatalog, readCart } from "@/lib/store/gallery-store";
 import { GalleryGrid, type GridPhoto } from "./gallery-grid";
 import { BrandAccent, BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
+import { playbackFor } from "@/lib/stream/client";
+import { formatDuration } from "@/lib/stream/webhook";
 import { brandImageUrl, getBrand } from "@/lib/brand/brand";
 
 export const dynamic = "force-dynamic";
@@ -88,7 +90,8 @@ export default async function GalleryPage({
     db.from("photo_sets").select("id, name, downloadable").eq("collection_id", collection.id).order("position"),
     db
       .from("media_assets")
-      .select("id, collection_id, set_id, r2_key, variants, variants_ready")
+      // "*" so the page keeps working before migration 0029 adds the video columns.
+      .select("*")
       .eq("collection_id", collection.id)
       .eq("status", "uploaded")
       .order("position"),
@@ -107,7 +110,7 @@ export default async function GalleryPage({
     .eq("id", collection.id)
     .maybeSingle();
   if (coverErr) throw coverErr;
-  const coverAsset = assets.find((a) => a.id === coverRow?.cover_asset_id) ?? assets[0];
+  const coverAsset = assets.find((a) => a.id === coverRow?.cover_asset_id) ?? assets.find((a) => a.kind !== "video");
   // Brand (9.2): the default cover stands in until the gallery has photos,
   // and the light logo sits on the cover.
   const brand = await getBrand();
@@ -159,20 +162,27 @@ export default async function GalleryPage({
 
   // Presigned GETs are local signing, no request to R2 per photo. The grid
   // uses the 640 variant, the lightbox 2048 (original until variants exist).
+  // Videos get a Stream playback token, signed locally too, and only here:
+  // past the access check above (6.4).
   let photos: GridPhoto[] = [];
   if (r2Configured()) {
     photos = await Promise.all(
-      setAssets.map(async (a, i) => ({
+      setAssets.map(async (a, i) => {
+        const isVideo = a.kind === "video";
+        const playback = isVideo && a.stream_status === "ready" && a.stream_uid ? await playbackFor(a.stream_uid) : null;
+        return {
         id: a.id,
-        label: `Photo ${i + 1}`,
-        gridUrl: await presignGet(displayKey(a, GRID_SIZE)),
-        largeUrl: await presignGet(displayKey(a, LIGHTBOX_SIZE)),
+        label: `${isVideo ? "Video" : "Photo"} ${i + 1}`,
+        gridUrl: isVideo ? (playback?.posterUrl ?? "") : await presignGet(displayKey(a, GRID_SIZE)),
+        largeUrl: isVideo ? "" : await presignGet(displayKey(a, LIGHTBOX_SIZE)),
+        video: isVideo ? { playerUrl: playback?.playerUrl ?? null, duration: formatDuration(a.duration_seconds) } : undefined,
         downloadHref:
           downloadsOn && downloadableSets.has(a.set_id) && !needsEmailToDownload
             ? `/g/${collection.slug}/download/${a.id}`
             : null,
         favorited: favoriteIds.has(a.id),
-      }))
+        };
+      })
     );
   }
 

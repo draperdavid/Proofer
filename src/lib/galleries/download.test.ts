@@ -93,3 +93,11 @@ test("claim refusals are known, ok and not_found are not refusals with messages"
   assert.ok(!isClaimRefusal("not_found"));
   assert.ok(!isClaimRefusal("toString"));
 });
+
+test("a video downloads as its original whatever the gallery's photo size", () => {
+  const video = { kind: "video", collection_id: "c", id: "a", r2_key: "collections/c/a/original.mov", variants_ready: false, variants: {} };
+  assert.equal(downloadKeyFor(video, "2048"), "collections/c/a/original.mov");
+  assert.equal(downloadKeyFor(video, "original"), "collections/c/a/original.mov");
+  // A photo at a size that isn't made yet still refuses (no silent upgrade).
+  assert.equal(downloadKeyFor({ ...video, kind: "photo", r2_key: "collections/c/a/original.jpg" }, "2048"), null);
+});

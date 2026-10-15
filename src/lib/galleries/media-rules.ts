@@ -3,23 +3,44 @@
 
 // JPEG/PNG/WebP only: these are the formats variant generation (5.2) can
 // resize. HEIC/RAW would need a conversion step first.
-const ALLOWED_TYPES: Record<string, string> = {
+const PHOTO_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
 };
 
-export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+// Videos (6.2): what Cloudflare Stream takes in and browsers commonly hand
+// over. The original is stored as-is; Stream makes the playable copy.
+const VIDEO_TYPES: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
 
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+// One presigned PUT to R2 tops out at 5 GiB. Larger needs multipart, which
+// is out of scope until a film needs it.
+export const MAX_VIDEO_BYTES = 5_000_000_000;
+
+export const ACCEPTED_UPLOAD_TYPES = [...Object.keys(PHOTO_TYPES), ...Object.keys(VIDEO_TYPES)];
+
+export type MediaKind = "photo" | "video";
 export type UploadRequest = { name: string; type: string; size: number };
+
+export function mediaKind(type: string): MediaKind | null {
+  if (Object.prototype.hasOwnProperty.call(PHOTO_TYPES, type)) return "photo";
+  if (Object.prototype.hasOwnProperty.call(VIDEO_TYPES, type)) return "video";
+  return null;
+}
 
 // Returns the file extension to store under, or throws a readable error.
 export function validateUpload(file: UploadRequest): string {
-  const ext = ALLOWED_TYPES[file.type];
-  if (!ext) throw new Error(`${file.name}: only JPEG, PNG and WebP images can be uploaded`);
+  const kind = mediaKind(file.type);
+  if (!kind) throw new Error(`${file.name}: only JPEG, PNG and WebP photos or MP4, MOV and WebM videos can be uploaded`);
   if (!Number.isInteger(file.size) || file.size <= 0) throw new Error(`${file.name}: file is empty`);
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name}: larger than the 100 MB limit`);
-  return ext;
+  if (kind === "photo" && file.size > MAX_UPLOAD_BYTES) throw new Error(`${file.name}: larger than the 100 MB limit for photos`);
+  if (kind === "video" && file.size > MAX_VIDEO_BYTES) throw new Error(`${file.name}: larger than the 5 GB limit for videos`);
+  return kind === "photo" ? PHOTO_TYPES[file.type] : VIDEO_TYPES[file.type];
 }
 
 export function collectionPrefix(collectionId: string): string {

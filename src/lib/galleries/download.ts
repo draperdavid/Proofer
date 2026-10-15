@@ -45,6 +45,7 @@ export const DOWNLOAD_SIZE_LABELS: Record<DownloadSize, string> = {
 };
 
 type DownloadableAsset = {
+  kind?: string;
   collection_id: string;
   id: string;
   r2_key: string;
@@ -55,8 +56,9 @@ type DownloadableAsset = {
 // The R2 key to hand out at the gallery's download size, or null if that size
 // doesn't exist yet. Never falls back to the original for a smaller size:
 // that would give away the full-resolution file David chose not to.
+// Videos have no size variants, so they always download as the original (6.4).
 export function downloadKeyFor(asset: DownloadableAsset, size: DownloadSize): string | null {
-  if (size === "original") return asset.r2_key;
+  if (size === "original" || asset.kind === "video") return asset.r2_key;
   const v = asset.variants_ready ? asset.variants?.[size] : undefined;
   const expected = `collections/${asset.collection_id}/${asset.id}/${size}.jpg`;
   return v && v.key === expected ? v.key : null;

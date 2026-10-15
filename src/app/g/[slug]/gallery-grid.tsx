@@ -15,6 +15,9 @@ export type GridPhoto = {
   // downloadable, or the visitor must give their email first.
   downloadHref: string | null;
   favorited: boolean;
+  // Videos (6.4): Stream's player and thumbnail, both carrying a signed
+  // token. playerUrl is null while Stream is still processing it.
+  video?: { playerUrl: string | null; duration: string | null };
 };
 
 type ToggleFavorite = (assetId: string) => Promise<{ ok: true; favorited: boolean } | { ok: false; error: string }>;
@@ -107,8 +110,10 @@ export function GalleryGrid({
   useEffect(() => {
     if (open === null || photos.length < 2) return;
     for (const d of [1, -1]) {
+      const p = photos[(open + d + photos.length) % photos.length];
+      if (p.video) continue;
       const img = new Image();
-      img.src = photos[(open + d + photos.length) % photos.length].largeUrl;
+      img.src = p.largeUrl;
     }
   }, [open, photos]);
 
@@ -125,8 +130,13 @@ export function GalleryGrid({
         {photos.map((photo, i) => (
           <li key={photo.id} className="gitem">
             <button type="button" className="gopen" onClick={() => setOpen(i)} aria-label={`Open ${photo.label}`}>
-              <img src={photo.gridUrl} alt={photo.label} loading="lazy" />
+              {photo.gridUrl ? (
+                <img src={photo.gridUrl} alt={photo.label} loading="lazy" />
+              ) : (
+                <span className="gvideo-ph">{photo.video?.playerUrl ? photo.label : "Video still processing"}</span>
+              )}
             </button>
+            {photo.video && <span className="vbadge">▶{photo.video.duration ? ` ${photo.video.duration}` : ""}</span>}
             <div className="gover">
               {photo.downloadHref && (
                 <a href={photo.downloadHref} className="icon" aria-label={`Download ${photo.label}`} title="Download">
@@ -162,7 +172,25 @@ export function GalleryGrid({
               ✕
             </button>
           </div>
-          <img key={current.id} src={current.largeUrl} alt={current.label} onClick={(e) => e.stopPropagation()} />
+          {current.video ? (
+            current.video.playerUrl ? (
+              <iframe
+                key={current.id}
+                src={current.video.playerUrl}
+                title={current.label}
+                className="lb-video"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <p className="lb-wait" onClick={(e) => e.stopPropagation()}>
+                This video is still processing. Check back in a few minutes.
+              </p>
+            )
+          ) : (
+            <img key={current.id} src={current.largeUrl} alt={current.label} onClick={(e) => e.stopPropagation()} />
+          )}
           {photos.length > 1 && (
             <>
               <button

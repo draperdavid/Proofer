@@ -78,6 +78,7 @@ async function main() {
     .from("media_assets")
     .select("id, collection_id, r2_key, variant_attempts")
     .eq("status", "uploaded")
+    .eq("kind", "photo")
     .eq("variants_ready", false)
     .lt("variant_attempts", MAX_VARIANT_ATTEMPTS)
     .order("created_at")

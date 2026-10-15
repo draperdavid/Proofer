@@ -3,8 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { finishUpload, startUpload } from "./actions";
+import { ACCEPTED_UPLOAD_TYPES } from "@/lib/galleries/media-rules";
 
-type Row = { name: string; state: "queued" | "uploading" | "done" | "failed"; error?: string };
+type Row = { name: string; size: number; sent: number; state: "queued" | "uploading" | "done" | "failed"; error?: string };
+
+// XHR rather than fetch: fetch can't report upload progress, and a 4 GB film
+// needs more than "0 of 1" for twenty minutes.
+function putWithProgress(url: string, file: File, onProgress: (sent: number) => void): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", file.type);
+    xhr.upload.onprogress = (e) => onProgress(e.loaded);
+    xhr.onload = () => resolve(xhr.status);
+    xhr.onerror = () => reject(new Error("network"));
+    xhr.send(file);
+  });
+}
 
 // A few files in flight at once: fast enough for a full shoot without
 // saturating the browser's connection or the Worker.
@@ -39,12 +54,8 @@ export function Uploader({
 
     let putError: string | undefined;
     try {
-      const res = await fetch(start.url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
-      if (!res.ok) putError = `Storage rejected the upload (${res.status})`;
+      const status = await putWithProgress(start.url, file, (sent) => update(i, { sent }));
+      if (status < 200 || status >= 300) putError = `Storage rejected the upload (${status})`;
     } catch {
       putError = "Network error while uploading (check the bucket's CORS settings)";
     }
@@ -56,13 +67,13 @@ export function Uploader({
       update(i, { state: "failed", error: putError ?? (finish.ok ? undefined : finish.error) });
       return;
     }
-    update(i, { state: "done" });
+    update(i, { state: "done", sent: file.size });
   }
 
   async function uploadFiles(files: File[]) {
     if (files.length === 0 || !setId || busy) return;
     setBusy(true);
-    setRows(files.map((f) => ({ name: f.name, state: "queued" })));
+    setRows(files.map((f) => ({ name: f.name, size: f.size, sent: 0, state: "queued" })));
 
     let next = 0;
     async function worker() {
@@ -80,7 +91,11 @@ export function Uploader({
   const done = rows.filter((r) => r.state === "done").length;
   const failed = rows.filter((r) => r.state === "failed");
   const finished = rows.filter((r) => r.state === "done" || r.state === "failed").length;
-  const ACCEPT = ["image/jpeg", "image/png", "image/webp"];
+  // By bytes, so one big video moves the bar as it goes.
+  const totalBytes = rows.reduce((n, r) => n + r.size, 0);
+  const sentBytes = rows.reduce((n, r) => n + (r.state === "failed" || r.state === "done" ? r.size : Math.min(r.sent, r.size)), 0);
+  const pct = totalBytes > 0 ? Math.round((sentBytes / totalBytes) * 100) : 0;
+  const ACCEPT = ACCEPTED_UPLOAD_TYPES;
 
   return (
     <div
@@ -112,11 +127,11 @@ export function Uploader({
               Uploading {finished} of {rows.length}…
             </>
           ) : (
-            <>Drag photos here, or</>
+            <>Drag photos or videos here, or</>
           )}
         </span>
         <label className={`btn${busy ? " disabled" : ""}`}>
-          Choose photos
+          Choose files
           <input
             className="sr-only"
             type="file"
@@ -144,15 +159,16 @@ export function Uploader({
         ) : (
           <span className="dz-set">into {sets[0]?.name}</span>
         )}
-        <span className="dz-hint">JPEG, PNG or WebP</span>
+        <span className="dz-hint">JPEG, PNG or WebP photos · MP4, MOV or WebM videos up to 5 GB</span>
       </div>
       {rows.length > 0 && (
         <div className="dz-progress" role="status">
           <div className="bar" aria-hidden="true">
-            <span style={{ width: `${Math.round((finished / rows.length) * 100)}%` }} />
+            <span style={{ width: `${pct}%` }} />
           </div>
           <span>
             {done} of {rows.length} uploaded{failed.length > 0 ? `, ${failed.length} failed` : ""}
+            {busy && totalBytes > 200 * 1024 * 1024 ? ` · ${pct}%` : ""}
           </span>
         </div>
       )}
