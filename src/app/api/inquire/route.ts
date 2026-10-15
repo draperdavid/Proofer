@@ -38,30 +38,33 @@ function clientIp(request: NextRequest): string {
   );
 }
 
-function redirectTo(request: NextRequest, kind: "success" | "error", message?: string) {
+function redirectTo(request: NextRequest, embed: boolean, kind: "success" | "error", message?: string) {
   const url = new URL("/inquire", request.url);
+  // The form embedded on David's website (9.3) stays in its compact mode.
+  if (embed) url.searchParams.set("embed", "1");
   url.searchParams.set(kind, message ?? "1");
   return NextResponse.redirect(url, 303);
 }
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
+  const embed = formData.get("embed") === "1";
 
   // Honeypot: real visitors never see or fill this field (hidden via CSS on the form).
   if (str(formData.get("hp_note"), 200)) {
-    return redirectTo(request, "success");
+    return redirectTo(request, embed, "success");
   }
 
   if (isRateLimited(clientIp(request))) {
-    return redirectTo(request, "success");
+    return redirectTo(request, embed, "success");
   }
 
   const name = str(formData.get("name"), MAX_NAME);
-  if (!name) return redirectTo(request, "error", "Name is required.");
+  if (!name) return redirectTo(request, embed, "error", "Name is required.");
 
   const email = str(formData.get("email"), MAX_EMAIL);
   if (email && !isValidEmail(email)) {
-    return redirectTo(request, "error", "That email address doesn't look right.");
+    return redirectTo(request, embed, "error", "That email address doesn't look right.");
   }
 
   const phone = str(formData.get("phone"), MAX_PHONE);
@@ -107,8 +110,8 @@ export async function POST(request: NextRequest) {
     // Inquiry auto-reply, if David attached one to the first stage.
     await onStageEntered(project.id, stageId);
   } catch {
-    return redirectTo(request, "error", "Something went wrong. Please try again.");
+    return redirectTo(request, embed, "error", "Something went wrong. Please try again.");
   }
 
-  return redirectTo(request, "success");
+  return redirectTo(request, embed, "success");
 }

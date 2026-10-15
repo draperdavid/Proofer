@@ -6,6 +6,10 @@ import { withSentryConfig } from "@sentry/nextjs";
 // with nothing important reported, switch CSP_ENFORCE to true.
 const CSP_ENFORCE = false;
 
+// Sites allowed to show the inquiry form in an iframe (9.3). Every other page
+// can't be framed at all. Add an origin here to allow another site.
+const EMBED_ORIGINS = ["https://davidmonroephotos.com", "https://www.davidmonroephotos.com"];
+
 const csp = [
   "default-src 'self'",
   // Next.js inlines small bootstrap scripts, and the theme picker runs one
@@ -18,7 +22,6 @@ const csp = [
   // Browser uploads go straight to R2; errors go to Sentry.
   "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
   "font-src 'self' data:",
-  "frame-ancestors 'none'",
   "base-uri 'self'",
   "object-src 'none'",
   // Pay buttons send the client on to Stripe Checkout.
@@ -30,6 +33,16 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {
+    // One content-security header set per page, so enforcing later doesn't
+    // leave two policies overwriting each other. frame-ancestors is always
+    // enforced (browsers ignore it in report-only).
+    const cspHeaders = (frameAncestors) =>
+      CSP_ENFORCE
+        ? [{ key: "Content-Security-Policy", value: `${csp}; frame-ancestors ${frameAncestors}` }]
+        : [
+            { key: "Content-Security-Policy", value: `frame-ancestors ${frameAncestors}` },
+            { key: "Content-Security-Policy-Report-Only", value: csp },
+          ];
     return [
       {
         source: "/:path*",
@@ -38,9 +51,16 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: CSP_ENFORCE ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only", value: csp },
         ],
+      },
+      // Nothing can be framed, except the inquiry form on David's own site.
+      {
+        source: "/:path((?!inquire$).*)",
+        headers: [{ key: "X-Frame-Options", value: "DENY" }, ...cspHeaders("'none'")],
+      },
+      {
+        source: "/inquire",
+        headers: cspHeaders(`'self' ${EMBED_ORIGINS.join(" ")}`),
       },
     ];
   },

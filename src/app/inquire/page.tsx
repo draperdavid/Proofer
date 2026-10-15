@@ -1,23 +1,27 @@
 // Public inquiry form (Phase 1.5). Plain HTML form posting to /api/inquire so
 // it works with no client JS; success/error state comes back via query params
 // after the API route's redirect.
-import { BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
+import { BrandAccent, BrandFooter, BrandHeader } from "@/app/_brand/brand-frame";
 export const dynamic = "force-dynamic";
 
 export default async function InquirePage({
   searchParams,
 }: {
-  searchParams: Promise<{ success?: string; error?: string }>;
+  searchParams: Promise<{ success?: string; error?: string; embed?: string }>;
 }) {
-  const { success, error } = await searchParams;
+  const { success, error, embed: embedParam } = await searchParams;
+  // ?embed=1: the compact version that sits in an iframe on David's website
+  // (9.3). No header or footer, and it tells the parent page its height.
+  const embed = embedParam === "1";
 
   return (
-    <main>
-      <BrandHeader />
-      <h1>Get in touch</h1>
+    <main className={embed ? "embed" : undefined}>
+      {embed ? <BrandAccent /> : <BrandHeader />}
+      {!embed && <h1>Get in touch</h1>}
       {success && <p>Thank you. Your note is on its way to me, and I&apos;ll be in touch soon.</p>}
       {error && <p>{error}</p>}
       <form action="/api/inquire" method="POST">
+        {embed && <input type="hidden" name="embed" value="1" />}
         {/* Honeypot: hidden from real visitors, bots tend to fill every field. */}
         <div style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
           <label htmlFor="hp_note">Leave this empty</label>
@@ -50,7 +54,15 @@ export default async function InquirePage({
         </div>
         <button type="submit">Send inquiry</button>
       </form>
-      <BrandFooter />
+      {!embed && <BrandFooter />}
+      {embed && (
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){function s(){try{parent.postMessage({proofer:'inquire-height',h:document.documentElement.scrollHeight},'*')}catch(e){}}window.addEventListener('load',s);new ResizeObserver(s).observe(document.body)})();",
+          }}
+        />
+      )}
     </main>
   );
 }
