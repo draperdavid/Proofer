@@ -39,8 +39,21 @@ export default async function BookingsPage() {
 
   const now = Date.now();
   const rows = (data ?? []) as unknown as Row[];
+  // A pending booking with money already in: its time was taken before the
+  // payment landed (0027 refuses to confirm an overlap). David sorts it out.
+  const pendingInvoiceIds = rows.filter((r) => r.status === "pending_payment" && r.invoice_id).map((r) => r.invoice_id as string);
+  const paidPending = new Set<string>();
+  if (pendingInvoiceIds.length > 0) {
+    const [{ data: paidInv }, { data: paidInst }] = await Promise.all([
+      supabaseAdmin().from("invoices").select("id").in("id", pendingInvoiceIds).eq("status", "paid"),
+      supabaseAdmin().from("invoice_installments").select("invoice_id").in("invoice_id", pendingInvoiceIds).eq("status", "paid"),
+    ]);
+    for (const r of paidInv ?? []) paidPending.add(r.id as string);
+    for (const r of paidInst ?? []) paidPending.add(r.invoice_id as string);
+  }
+  const conflicted = (r: Row) => r.status === "pending_payment" && !!r.invoice_id && paidPending.has(r.invoice_id);
   const live = (r: Row) => r.status === "confirmed" || (r.status === "pending_payment" && new Date(r.hold_expires_at).getTime() > now);
-  const upcoming = rows.filter((r) => live(r) && new Date(r.starts_at).getTime() >= now);
+  const upcoming = rows.filter((r) => (live(r) || conflicted(r)) && new Date(r.starts_at).getTime() >= now);
   const other = rows.filter((r) => !upcoming.includes(r) && r.contacts).reverse().slice(0, 30);
 
   const table = (list: Row[], showCancel: boolean) => (
@@ -63,13 +76,19 @@ export default async function BookingsPage() {
               {r.project_id ? <Link href={`/admin/projects/${r.project_id}`}>{r.contacts?.name ?? "—"}</Link> : r.contacts?.name ?? "—"}
             </td>
             <td>
-              {r.status === "pending_payment"
-                ? live(r)
-                  ? "Held, awaiting payment"
-                  : "Hold expired"
-                : r.status === "confirmed"
-                  ? "Booked"
-                  : "Canceled"}
+              {conflicted(r) ? (
+                <span className="st red">Paid, but the time was taken</span>
+              ) : r.status === "pending_payment" ? (
+                live(r) ? (
+                  <span className="st amber">Held, awaiting payment</span>
+                ) : (
+                  <span className="st grey">Hold expired</span>
+                )
+              ) : r.status === "confirmed" ? (
+                <span className="st green">Booked</span>
+              ) : (
+                <span className="st grey">Canceled</span>
+              )}
               {r.invoice_id && (
                 <>
                   {" · "}
