@@ -45,6 +45,9 @@ export default async function InvoicesPage({
     <main>
       <div className="pagehead">
         <h1>Invoices</h1>
+        <Link href="/admin/invoices/reconcile" className="btn">
+          Check against Stripe
+        </Link>
       </div>
 
       <form className="filters">
