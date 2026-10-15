@@ -140,7 +140,7 @@ export default async function PayInvoicePage({
               {installments.map((i) => (
                 <tr key={i.id}>
                   <td>{i.label}</td>
-                  <td>{i.due_date ? formatDay(i.due_date) : "—"}</td>
+                  <td>{i.due_date ? formatDay(i.due_date) : "On receipt"}</td>
                   <td>{formatCents(i.amount_cents, invoice.currency)}</td>
                   <td>{i.status === "paid" ? "Paid" : i.id === next?.id ? "Due next" : ""}</td>
                 </tr>

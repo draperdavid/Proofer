@@ -48,8 +48,8 @@ export default async function ViewQuotePage({
 
       {accepted && (
         <p>
-          Thanks — you accepted {acceptedPackage ? <strong>{acceptedPackage.name}</strong> : "a package"}. We&apos;ll
-          be in touch with your invoice.
+          Thank you. You chose {acceptedPackage ? <strong>{acceptedPackage.name}</strong> : "a package"}, and your invoice
+          is on its way.
         </p>
       )}
 

@@ -73,7 +73,7 @@ export async function createCheckoutSession(invoiceId: string) {
   const next = installments.find((i) => i.status === "unpaid") ?? null;
   if (installments.length > 0 && !next) throw new Error("Every payment on this invoice is already made");
 
-  const title = invoice.projects?.title ? `Invoice — ${invoice.projects.title}` : "Invoice";
+  const title = invoice.projects?.title ? `Invoice: ${invoice.projects.title}` : "Invoice";
   const baseUrl = env.appBaseUrl();
   const session = await stripe().checkout.sessions.create({
     mode: "payment",

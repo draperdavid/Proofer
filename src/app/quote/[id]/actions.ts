@@ -55,7 +55,7 @@ export async function acceptPackage(quoteId: string, packageId: string) {
         contact_id: quote.contact_id,
         currency: quote.currency,
         tax_rate: Number(quote.tax_rate),
-        notes: `From quote "${quote.title}" — ${pkg.name}`,
+        notes: `From quote "${quote.title}": ${pkg.name}`,
       },
       pkg.line_items.map((item) => ({
         description: item.description,

@@ -13,7 +13,7 @@ export default async function InquirePage({
   return (
     <main>
       <h1>Get in touch</h1>
-      {success && <p>Thanks — your inquiry has been sent. We&apos;ll be in touch soon.</p>}
+      {success && <p>Thank you. Your note is on its way to me, and I&apos;ll be in touch soon.</p>}
       {error && <p>{error}</p>}
       <form action="/api/inquire" method="POST">
         {/* Honeypot: hidden from real visitors, bots tend to fill every field. */}

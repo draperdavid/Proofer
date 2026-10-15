@@ -39,7 +39,7 @@ export default async function FillQuestionnairePage({
       <h1>{questionnaire.projects?.title ?? "Questionnaire"}</h1>
       {errorParam === "limited" && <p className="err">Too many attempts. Please wait a few minutes and try again.</p>}
 
-      {alreadySubmitted && <p>Thanks — your answers have been received.</p>}
+      {alreadySubmitted && <p>Thank you. Your answers are in, and they help me plan the day around you.</p>}
 
       {!alreadySubmitted && (
         <form action={submit}>
