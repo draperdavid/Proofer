@@ -11,6 +11,13 @@ main = "worker.mjs"
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# Production reminder queue (Phase 8.3), hourly at :05 UTC, same as staging.
+# Harmless until production has its database and secrets (launch/prod-setup.md).
+# APP_BASE_URL for production goes in a [vars] block here once David picks the
+# client-facing address.
+[triggers]
+crons = ["5 * * * *"]
+
 # Staging Worker (deployed from `develop`). Run with --env staging.
 [env.staging]
 name = "proofer-staging"
