@@ -47,6 +47,9 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      # Unit tests (money math, payments, access checks, admin-action guard)
+      # must pass before anything deploys.
+      - run: npm test
       - run: npm run build
       - run: npx opennextjs-cloudflare build
       - run: npx wrangler deploy --env staging
@@ -70,6 +73,9 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      # Unit tests (money math, payments, access checks, admin-action guard)
+      # must pass before anything deploys.
+      - run: npm test
       - run: npm run build
       - run: npx opennextjs-cloudflare build
       - run: npx wrangler deploy
