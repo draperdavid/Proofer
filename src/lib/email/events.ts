@@ -33,6 +33,8 @@ export const idempotencyKeys = {
   // One receipt per Stripe event, so a redelivered webhook never re-sends.
   paymentReceipt: (stripeEventId: string) => `payment_receipt:${stripeEventId}`,
   bookingConfirmed: (bookingId: string) => `booking_confirmation:${bookingId}`,
+  // One send per queued reminder (Phase 8.3), across retries and overlapping runs.
+  reminder: (jobId: string) => `reminder:${jobId}`,
 };
 
 // "$1,234.50" from integer cents.

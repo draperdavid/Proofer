@@ -17,7 +17,11 @@ export type TemplateKey =
   | "booking_confirmation"
   | "inquiry_received"
   | "project_booked"
-  | "project_wrapped";
+  | "project_wrapped"
+  | "invoice_reminder"
+  | "invoice_overdue"
+  | "contract_reminder"
+  | "questionnaire_reminder";
 
 export type TemplateDef = {
   key: TemplateKey;
@@ -258,6 +262,90 @@ If one of those photos ends up on a wall or a fridge, I'd love to see where it l
 
 David`,
     sample: { ...SAMPLE_CONTACT, "project.title": "Ellis Family Session" },
+  },
+  invoice_reminder: {
+    key: "invoice_reminder",
+    name: "Payment reminder",
+    description: "Reminder: 3 days before a payment is due, and on the day.",
+    fields: [...CONTACT, "invoice.amount", "invoice.due_date", "invoice.link"],
+    subject: "A reminder: {{invoice.amount}} due {{invoice.due_date}}",
+    body: `Hi {{contact.first_name}},
+
+A heads up that {{invoice.amount}} is due {{invoice.due_date}}. You can pay it here:
+
+{{invoice.link}}
+
+If it's already on its way, ignore this one.
+
+David`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "invoice.amount": "$450.00",
+      "invoice.due_date": "October 20, 2026",
+      "invoice.link": "https://example.com/pay/1234",
+    },
+  },
+  invoice_overdue: {
+    key: "invoice_overdue",
+    name: "Payment overdue",
+    description: "Reminder: a week after a payment was due.",
+    fields: [...CONTACT, "invoice.amount", "invoice.due_date", "invoice.link"],
+    subject: "Still open: {{invoice.amount}}",
+    body: `Hi {{contact.first_name}},
+
+Your payment of {{invoice.amount}} was due {{invoice.due_date}} and it hasn't come through yet. Here's the link again:
+
+{{invoice.link}}
+
+If something's come up, reply and tell me. We'll sort it out.
+
+David`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "invoice.amount": "$450.00",
+      "invoice.due_date": "October 20, 2026",
+      "invoice.link": "https://example.com/pay/1234",
+    },
+  },
+  contract_reminder: {
+    key: "contract_reminder",
+    name: "Contract reminder",
+    description: "Reminder: 3 and 7 days after a contract went out unsigned.",
+    fields: [...CONTACT, "project.title", "contract.link"],
+    subject: "Your contract for {{project.title}} is waiting",
+    body: `Hi {{contact.first_name}},
+
+Your contract for {{project.title}} is still waiting on your signature. It takes a couple of minutes:
+
+{{contract.link}}
+
+Questions about any of it, reply here and you'll get me.
+
+David`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "project.title": "Ellis Family Session",
+      "contract.link": "https://example.com/sign/1234",
+    },
+  },
+  questionnaire_reminder: {
+    key: "questionnaire_reminder",
+    name: "Questionnaire reminder",
+    description: "Reminder: 3 and 7 days after a questionnaire went out unanswered.",
+    fields: [...CONTACT, "project.title", "questionnaire.link"],
+    subject: "Those questions before {{project.title}}",
+    body: `Hi {{contact.first_name}},
+
+Still hoping to hear from you before {{project.title}}. Your answers help me plan the day around you.
+
+{{questionnaire.link}}
+
+David`,
+    sample: {
+      ...SAMPLE_CONTACT,
+      "project.title": "Ellis Family Session",
+      "questionnaire.link": "https://example.com/questionnaire/1234",
+    },
   },
 };
 

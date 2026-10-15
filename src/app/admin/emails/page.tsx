@@ -57,7 +57,9 @@ export default async function EmailsPage() {
       </table>
       <p className="hint">
         Sent automatically: invoices and quotes when you mark them sent, questionnaires when you send them, and any{" "}
-        <Link href="/admin/projects/stages">stage emails</Link> you set up.
+        <Link href="/admin/projects/stages">stage emails</Link> you set up.{" "}
+        <Link href="/admin/emails/reminders">Reminders</Link> chase unpaid invoices, unsigned contracts and unanswered
+        questionnaires once you switch them on.
       </p>
 
       <h2>Blocked addresses</h2>

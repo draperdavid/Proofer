@@ -2,7 +2,9 @@
 name = "proofer"
 compatibility_date = "2025-03-01"
 compatibility_flags = ["nodejs_compat"]
-main = ".open-next/worker.js"
+# worker.mjs wraps the OpenNext build output (.open-next/worker.js) and adds
+# the reminder cron handler (Phase 8.3).
+main = "worker.mjs"
 
 # Static assets emitted by the OpenNext build.
 [assets]
@@ -20,6 +22,12 @@ binding = "ASSETS"
 # Public base URL for links in Stripe redirects and emails. Not a secret.
 [env.staging.vars]
 APP_BASE_URL = "https://proofer-staging.proofer.workers.dev"
+
+# Reminder queue (Phase 8.3), hourly at :05 UTC. Reminders are due at 10:00
+# Eastern, so they go out within the hour. Staging only for now; production
+# gets its own [triggers] at launch (Phase 9).
+[env.staging.triggers]
+crons = ["5 * * * *"]
 
 # No R2 binding: galleries (Phase 5) need presigned URLs so media goes
 # browser <-> R2 directly, which needs the S3-compatible API with access keys

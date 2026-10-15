@@ -10,6 +10,9 @@ import { requireAdmin } from "@/lib/auth/require-admin";
 import { TEMPLATES, isTemplateKey, type TemplateKey } from "@/lib/email/templates";
 import { cleanSubject, unknownFields } from "@/lib/email/render";
 import { sendTemplatedEmail } from "@/lib/email/send";
+import { appBaseUrl } from "@/lib/email/triggers";
+import { isReminderSetting } from "@/lib/reminders/schedule";
+import { runReminders } from "@/lib/reminders/run";
 
 function templateKey(raw: string): TemplateKey {
   if (!isTemplateKey(raw)) throw new Error("Unknown email template");
@@ -68,4 +71,28 @@ export async function clearSuppression(email: string, returnTo: string) {
   revalidatePath("/admin/emails");
   // Only ever bounce back to an admin page.
   redirect(returnTo.startsWith("/admin/") ? returnTo : "/admin/emails");
+}
+
+// Switches one kind of scheduled reminder on or off (Phase 8.3). Switching
+// off cancels its queued reminders on the next run.
+export async function setReminderActive(kind: string, active: boolean) {
+  await requireAdmin();
+  if (!isReminderSetting(kind)) throw new Error("Unknown reminder type");
+  const { error } = await supabaseAdmin()
+    .from("reminder_settings")
+    .upsert({ kind, active, updated_at: new Date().toISOString() });
+  if (error) throw error;
+  revalidatePath("/admin/emails/reminders");
+}
+
+// Runs the reminder queue now instead of waiting for the hourly cron.
+export async function runRemindersNow() {
+  await requireAdmin();
+  const s = await runReminders({ baseUrl: await appBaseUrl() });
+  revalidatePath("/admin/emails/reminders");
+  revalidatePath("/admin/emails/log");
+  const result = s.note
+    ? s.note
+    : `Queued ${s.queued}, sent ${s.sent}, skipped ${s.skipped}, retrying ${s.retrying}, failed ${s.failed}, canceled ${s.canceled}.`;
+  redirect(`/admin/emails/reminders?ran=${encodeURIComponent(result)}`);
 }
