@@ -77,8 +77,8 @@ export default async function BookSessionPage({
           <input type="hidden" name="slug" value={type.slug} />
           {/* Honeypot: hidden from real visitors. */}
           <div style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
-            <label htmlFor="company">Company</label>
-            <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+            <label htmlFor="hp_note">Leave this empty</label>
+            <input id="hp_note" name="hp_note" type="text" tabIndex={-1} autoComplete="new-password" />
           </div>
 
           <h2>Pick a time</h2>

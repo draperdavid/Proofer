@@ -18,8 +18,8 @@ export default async function InquirePage({
       <form action="/api/inquire" method="POST">
         {/* Honeypot: hidden from real visitors, bots tend to fill every field. */}
         <div style={{ position: "absolute", left: "-9999px" }} aria-hidden="true">
-          <label htmlFor="company">Company</label>
-          <input id="company" name="company" type="text" tabIndex={-1} autoComplete="off" />
+          <label htmlFor="hp_note">Leave this empty</label>
+          <input id="hp_note" name="hp_note" type="text" tabIndex={-1} autoComplete="new-password" />
         </div>
 
         <div>

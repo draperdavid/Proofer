@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
 
   // Honeypot: real visitors never see or fill this field (hidden via CSS on the form).
-  if (str(formData.get("company"), 200)) {
+  if (str(formData.get("hp_note"), 200)) {
     return redirectTo(request, "success");
   }
 

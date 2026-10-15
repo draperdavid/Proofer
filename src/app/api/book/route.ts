@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
   const slug = str(formData.get("slug"), 100) ?? "";
 
   // Honeypot and rate limit: same quiet treatment as /api/inquire.
-  if (str(formData.get("company"), 200) || isRateLimited(`book:${clientIp(request)}`)) {
+  if (str(formData.get("hp_note"), 200) || isRateLimited(`book:${clientIp(request)}`)) {
     return back(request, slug, "Something went wrong. Please try again in a few minutes.");
   }
 
