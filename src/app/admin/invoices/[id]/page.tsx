@@ -69,140 +69,168 @@ export default async function InvoiceDetailPage({
   const markDraft = updateInvoiceStatus.bind(null, invoice.id, "draft");
   const markVoid = updateInvoiceStatus.bind(null, invoice.id, "void");
 
-  return (
-    <main>
-      <h1>Invoice</h1>
-      <p>
-        {invoice.projects ? (
-          <Link className="back" href={`/admin/projects/${invoice.projects.id}`}>← Back to {invoice.projects.title}</Link>
-        ) : (
-          <Link className="back" href="/admin/invoices">← Back to invoices</Link>
-        )}
-      </p>
-      <p>
-        <span className={`st ${invoice.status === "paid" ? "green" : invoice.status === "void" ? "grey" : alerts.length > 0 || (invoice.status === "sent" && invoice.due_date !== null && invoice.due_date < businessTodayISO()) ? "red" : "blue"}`}>
-          {invoice.status === "paid" ? "Paid" : invoice.status === "void" ? "Void" : invoice.status === "draft" ? "Draft" : invoice.status === "sent" && invoice.due_date !== null && invoice.due_date < businessTodayISO() ? "Overdue" : "Unpaid"}
-        </span>
-        {invoice.contacts ? ` · ${invoice.contacts.name}` : ""}
-        {" · "}
-        {formatCents(invoice.total_cents, invoice.currency)}
-      </p>
+  const overdue = invoice.status === "sent" && invoice.due_date !== null && invoice.due_date < businessTodayISO();
+  const [tone, statusLabel] =
+    invoice.status === "paid" ? ["green", "Paid"] : invoice.status === "void" ? ["grey", "Void"] : invoice.status === "draft" ? ["blue", "Draft"] : overdue || alerts.length > 0 ? ["red", overdue ? "Overdue" : "Unpaid"] : ["blue", "Unpaid"];
 
-      {invoice.status === "paid" && invoice.paid_at && (
-        <p>
-          Paid {formatCents(invoice.amount_paid_cents ?? 0, invoice.currency)} on{" "}
-          {formatDateTime(invoice.paid_at)} via Stripe.
-        </p>
+  return (
+    <main className="fluid workspace">
+      {invoice.projects ? (
+        <Link className="back" href={`/admin/projects/${invoice.projects.id}`}>
+          ← {invoice.projects.title}
+        </Link>
+      ) : (
+        <Link className="back" href="/admin/invoices">
+          ← Invoices
+        </Link>
       )}
+      <header className="ws-head">
+        <h1>Invoice · {formatCents(invoice.total_cents, invoice.currency)}</h1>
+        <div className="ws-meta">
+          <span className={`st ${tone}`}>{statusLabel}</span>
+          {invoice.contacts && <span>{invoice.contacts.name}</span>}
+          <span>{invoice.due_date ? `Due ${formatDay(invoice.due_date)}` : "Due on receipt"}</span>
+        </div>
+      </header>
 
       {alerts.map((e) => (
-        <p key={e.id} className="err">
+        <p key={e.id} className="notice err">
           <strong>Needs attention:</strong> {NEEDS_ATTENTION[e.outcome]} (Stripe event {e.stripe_event_id})
         </p>
       ))}
 
-      {installments.length > 0 && !editable && (
-        <>
-          <h2>Payment schedule</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Payment</th>
-                <th>Due</th>
-                <th>Amount</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {installments.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.label}</td>
-                  <td>{i.due_date ? formatDay(i.due_date) : "—"}</td>
-                  <td>{formatCents(i.amount_cents, invoice.currency)}</td>
-                  <td>{i.status === "paid" && i.paid_at ? `Paid ${formatDateTime(i.paid_at)}` : "Unpaid"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {invoice.status === "sent" && (
-        <p>
-          Pay link: <ClientLink path={`/pay/${invoice.id}`} />
-        </p>
-      )}
-
-      {editable && (
-        <>
-          <form action={updateThisInvoice}>
-            <input type="hidden" name="project_id" value={invoice.project_id} />
-            <input type="hidden" name="contact_id" value={invoice.contact_id} />
+      <div className="ws">
+        <aside className="ws-side" aria-label="Summary">
+          <dl className="ws-facts">
             <div>
-              <label htmlFor="due_date">Due date</label>
-              <input id="due_date" name="due_date" type="date" defaultValue={invoice.due_date ?? ""} />
+              <dt>Client</dt>
+              <dd>{invoice.contacts ? <Link href={`/admin/contacts/${invoice.contacts.id}`}>{invoice.contacts.name}</Link> : "None"}</dd>
             </div>
-            <LineItemsEditor
-              items={lineItems}
-              schedule={installments}
-              discountType={invoice.discount_type}
-              discountValue={invoice.discount_value}
-              taxRate={invoice.tax_rate}
-            />
             <div>
-              <label htmlFor="notes">Notes</label>
-              <textarea id="notes" name="notes" defaultValue={invoice.notes ?? ""} />
+              <dt>Total</dt>
+              <dd className="num">{formatCents(invoice.total_cents, invoice.currency)}</dd>
             </div>
-            <button type="submit">Save changes</button>
-          </form>
-
-          <form action={deleteThisInvoice}>
-            <ConfirmButton message="Delete this invoice? This can't be undone.">Delete invoice</ConfirmButton>
-          </form>
-        </>
-      )}
-
-      {editable && (
-        <>
-          <h2>Status</h2>
-          <form action={invoice.status === "draft" ? markSent : markDraft}>
-            <button type="submit">{invoice.status === "draft" ? "Mark as sent and email client" : "Revert to draft"}</button>
-          </form>
-          {invoice.status !== "void" && (
-            <form action={markVoid}>
-              <button type="submit">Void invoice</button>
-            </form>
+            {invoice.status === "paid" && invoice.paid_at && (
+              <div>
+                <dt>Paid</dt>
+                <dd className="num">
+                  {formatCents(invoice.amount_paid_cents ?? 0, invoice.currency)}
+                  <span className="sub">{formatDateTime(invoice.paid_at)}</span>
+                </dd>
+              </div>
+            )}
+          </dl>
+          {invoice.status === "sent" && (
+            <div className="ws-next">
+              <span className="lbl">Client pay link</span>
+              <ClientLink path={`/pay/${invoice.id}`} />
+            </div>
           )}
-        </>
-      )}
-      {events.length > 0 && (
-        <>
-          <h2>Payment history</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>When</th>
-                <th>Stripe event</th>
-                <th>Amount</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.id}>
-                  <td>{formatDateTime(e.received_at)}</td>
-                  <td>
-                    {e.type}
-                    {e.livemode ? "" : " (test)"}
-                  </td>
-                  <td>{e.amount_cents === null ? "—" : formatCents(e.amount_cents, e.currency ?? invoice.currency)}</td>
-                  <td>{e.outcome.replace(/_/g, " ")}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
+          {editable && (
+            <div className="ws-next">
+              <span className="lbl">Status</span>
+              <form action={invoice.status === "draft" ? markSent : markDraft}>
+                <button type="submit" className={invoice.status === "draft" ? "primary" : undefined}>
+                  {invoice.status === "draft" ? "Mark as sent and email client" : "Revert to draft"}
+                </button>
+              </form>
+              {invoice.status !== "void" && (
+                <form action={markVoid}>
+                  <button type="submit" className="ghost">
+                    Void invoice
+                  </button>
+                </form>
+              )}
+              <form action={deleteThisInvoice}>
+                <ConfirmButton message="Delete this invoice? This can't be undone.">Delete invoice</ConfirmButton>
+              </form>
+            </div>
+          )}
+        </aside>
+
+        <div className="ws-main">
+          {editable ? (
+            <section className="ws-sec">
+              <h3>Line items</h3>
+              <form action={updateThisInvoice}>
+                <input type="hidden" name="project_id" value={invoice.project_id} />
+                <input type="hidden" name="contact_id" value={invoice.contact_id} />
+                <div>
+                  <label htmlFor="due_date">Due date</label>
+                  <input id="due_date" name="due_date" type="date" defaultValue={invoice.due_date ?? ""} />
+                </div>
+                <LineItemsEditor
+                  items={lineItems}
+                  schedule={installments}
+                  discountType={invoice.discount_type}
+                  discountValue={invoice.discount_value}
+                  taxRate={invoice.tax_rate}
+                />
+                <div>
+                  <label htmlFor="notes">Notes</label>
+                  <textarea id="notes" name="notes" defaultValue={invoice.notes ?? ""} />
+                </div>
+                <button type="submit" className="primary">
+                  Save changes
+                </button>
+              </form>
+            </section>
+          ) : (
+            <section className="ws-sec">
+              <h3>Line items</h3>
+              <ul className="ws-rows">
+                {lineItems.map((li) => (
+                  <li key={li.id}>
+                    <span className="grow">{li.description}</span>
+                    <span className="muted small">
+                      {li.quantity} × {formatCents(li.unit_price_cents, invoice.currency)}
+                    </span>
+                    <span className="small">{formatCents(Math.round(li.quantity * li.unit_price_cents), invoice.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+              {invoice.notes && <p className="muted" style={{ marginTop: 12 }}>{invoice.notes}</p>}
+            </section>
+          )}
+
+          {installments.length > 0 && !editable && (
+            <section className="ws-sec">
+              <h3>Payment schedule</h3>
+              <ul className="ws-rows">
+                {installments.map((i) => (
+                  <li key={i.id}>
+                    <span className={`st ${i.status === "paid" ? "green" : "blue"}`}>{i.status === "paid" ? "Paid" : "Unpaid"}</span>
+                    <span className="grow">{i.label}</span>
+                    <span className="muted small">{i.status === "paid" && i.paid_at ? formatDateTime(i.paid_at) : i.due_date ? `Due ${formatDay(i.due_date)}` : "On receipt"}</span>
+                    <span className="small">{formatCents(i.amount_cents, invoice.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {events.length > 0 && (
+            <section className="ws-sec">
+              <h3>Payment history</h3>
+              <ul className="ws-rows">
+                {events.map((e) => (
+                  <li key={e.id}>
+                    <span className={`st ${e.outcome === "paid" || e.outcome === "installment_paid" ? "green" : NEEDS_ATTENTION[e.outcome] ? "red" : "grey"}`}>
+                      {e.outcome.replace(/_/g, " ")}
+                    </span>
+                    <span className="grow">
+                      {e.type}
+                      {e.livemode ? "" : " (test)"}
+                    </span>
+                    <span className="muted small">{formatDateTime(e.received_at)}</span>
+                    <span className="small">{e.amount_cents === null ? "" : formatCents(e.amount_cents, e.currency ?? invoice.currency)}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      </div>
     </main>
   );
 }
