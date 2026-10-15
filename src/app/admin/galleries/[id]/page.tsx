@@ -329,7 +329,7 @@ export default async function CollectionDetailPage({
               </div>
 
               {storageReady ? (
-                <div className="card" style={{ marginBottom: "var(--sp-4)" }}>
+                <div>
                   <Uploader
                     collectionId={collection.id}
                     sets={[activeSet, ...sets.filter((s) => s.id !== activeSet.id)].map((s) => ({ id: s.id, name: s.name }))}

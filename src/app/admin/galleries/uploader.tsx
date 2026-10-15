@@ -23,6 +23,7 @@ export function Uploader({
   const [setId, setSetId] = useState(sets[0]?.id ?? "");
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   function update(i: number, patch: Partial<Row>) {
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -58,12 +59,8 @@ export function Uploader({
     update(i, { state: "done" });
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const input = e.currentTarget.elements.namedItem("files") as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
-    if (files.length === 0 || !setId) return;
-
+  async function uploadFiles(files: File[]) {
+    if (files.length === 0 || !setId || busy) return;
     setBusy(true);
     setRows(files.map((f) => ({ name: f.name, state: "queued" })));
 
@@ -77,38 +74,90 @@ export function Uploader({
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, files.length) }, worker));
 
     setBusy(false);
-    input.value = "";
     router.refresh();
   }
 
   const done = rows.filter((r) => r.state === "done").length;
   const failed = rows.filter((r) => r.state === "failed");
+  const finished = rows.filter((r) => r.state === "done" || r.state === "failed").length;
+  const ACCEPT = ["image/jpeg", "image/png", "image/webp"];
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div>
-        <label htmlFor="upload_set">Upload into set</label>
-        <select id="upload_set" value={setId} onChange={(e) => setSetId(e.target.value)} disabled={busy}>
-          {sets.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+    <div
+      className={`dropzone${dragging ? " over" : ""}${busy ? " busy" : ""}`}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        if (!busy) setDragging(true);
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = busy ? "none" : "copy";
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragging(false);
+        void uploadFiles(Array.from(e.dataTransfer.files).filter((f) => ACCEPT.includes(f.type)));
+      }}
+    >
+      <div className="dz-main">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+        </svg>
+        <span className="dz-text">
+          {busy ? (
+            <>
+              Uploading {finished} of {rows.length}…
+            </>
+          ) : (
+            <>Drag photos here, or</>
+          )}
+        </span>
+        <label className={`btn${busy ? " disabled" : ""}`}>
+          Choose photos
+          <input
+            className="sr-only"
+            type="file"
+            multiple
+            accept={ACCEPT.join(",")}
+            disabled={busy}
+            onChange={(e) => {
+              const files = Array.from(e.currentTarget.files ?? []);
+              e.currentTarget.value = "";
+              void uploadFiles(files);
+            }}
+          />
+        </label>
+        {sets.length > 1 ? (
+          <label className="dz-set">
+            into
+            <select value={setId} onChange={(e) => setSetId(e.target.value)} disabled={busy} aria-label="Upload into set">
+              {sets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="dz-set">into {sets[0]?.name}</span>
+        )}
+        <span className="dz-hint">JPEG, PNG or WebP</span>
       </div>
-      <div>
-        <input name="files" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} />
-      </div>
-      <button type="submit" disabled={busy}>
-        {busy ? "Uploading..." : "Upload"}
-      </button>
       {rows.length > 0 && (
-        <p>
-          {done} of {rows.length} uploaded{failed.length > 0 ? `, ${failed.length} failed` : ""}.
-        </p>
+        <div className="dz-progress" role="status">
+          <div className="bar" aria-hidden="true">
+            <span style={{ width: `${Math.round((finished / rows.length) * 100)}%` }} />
+          </div>
+          <span>
+            {done} of {rows.length} uploaded{failed.length > 0 ? `, ${failed.length} failed` : ""}
+          </span>
+        </div>
       )}
       {failed.length > 0 && (
-        <ul>
+        <ul className="dz-errors">
           {failed.map((r, i) => (
             <li key={i} role="alert">
               {r.name}: {r.error}
@@ -116,6 +165,6 @@ export function Uploader({
           ))}
         </ul>
       )}
-    </form>
+    </div>
   );
 }
